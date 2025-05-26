@@ -1,5 +1,6 @@
 mod gtfs;
 mod stop_tree;
+mod stop_times;
 
 use std::{error::Error, num::NonZero};
 use prost::Message;
@@ -32,9 +33,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // let feed_message = await fetch_gtfs_rt(&client)?;
 
+    let stop_time_map = stop_times::download_feed(&client, "grt", GRT_GTFS);
+
     let ast = stop_tree::ArchivedStopTree::unpack_from_files()?;
     let stops = ast.find_nearest(43.457787, -80.513526, NonZero::new(5).unwrap());
-    println!("{:?}", stops);
+    //println!("{:?}", stops);
+
+    let now = gtfs::GtfsTime::local_now();
+
+    for stop in stops {
+        //let cursor = stop_time_map.lower_bound
+    }
 
     Ok(())
 }
