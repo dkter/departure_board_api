@@ -1,6 +1,7 @@
 use crate::gtfs::{FromZip, GtfsTime, StopTime};
 use clorinde::client::Params;
-use clorinde::queries::stop_times::{InsertStopTimeParams, insert_stop_time};
+use clorinde::queries::stop_times::{
+    InsertStopTimeParams, insert_stop_time, get_next_departures_after_time};
 use clorinde::tokio_postgres;
 use std::{error::Error, io::{Read, Seek, Cursor}};
 use tokio::task::JoinSet;
@@ -46,12 +47,37 @@ fn stop_time_to_db_record(stop_time: StopTime) -> InsertStopTimeParams<String, S
     }
 }
 
+fn db_record_to_stop_time(db_record: clorinde::queries::stop_times::StopTimes) -> StopTime {
+    StopTime {
+        agency: db_record.agency,
+        trip_id: db_record.trip_id,
+        arrival_time: db_record.arrival_time.map(|t| t.into()),
+        departure_time: db_record.departure_time.map(|t| t.into()),
+        stop_id: db_record.stop_id,
+        location_group_id: db_record.location_group_id,
+        location_id: db_record.location_id,
+        stop_sequence: db_record.stop_sequence,
+        stop_headsign: db_record.stop_headsign,
+        start_pickup_drop_off_window: db_record.start_pickup_drop_off_window.map(|t| t.into()),
+        end_pickup_drop_off_window: db_record.end_pickup_drop_off_window.map(|t| t.into()),
+        pickup_type: db_record.pickup_type,
+        drop_off_type: db_record.drop_off_type,
+        continuous_pickup: db_record.continuous_pickup,
+        continuous_drop_off: db_record.continuous_drop_off,
+        shape_dist_traveled: db_record.shape_dist_traveled,
+        timepoint: db_record.timepoint,
+        pickup_booking_rule_id: db_record.pickup_booking_rule_id,
+        drop_off_booking_rule_id: db_record.drop_off_booking_rule_id,
+    }
+}
+
 pub async fn download_feed_and_populate_db(
     reqwest_client: &reqwest::Client,
     db_client: &mut tokio_postgres::Client,
     agency: &str,
     url: &str,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(),
+Box<dyn Error>> {
     let mut stop_times = download_feed(reqwest_client, agency, url).await?;
 
     // let mut join_set = stop_times.drain(..).map(move |stop_time| {
@@ -69,4 +95,17 @@ pub async fn download_feed_and_populate_db(
     }
     transaction.commit().await?;
     Ok(())
+}
+
+pub async fn get_next_n_deps(
+    db_client: &mut tokio_postgres::Client,
+    time: GtfsTime,
+    stop_id: &str,
+    limit: i64,
+) -> Result<Vec<StopTime>, Box<dyn Error>> {
+    Ok(get_next_departures_after_time().bind(db_client, &time.into(), &stop_id, &limit).all()
+        .await?
+        .into_iter()
+        .map(|record| db_record_to_stop_time(record))
+        .collect())
 }

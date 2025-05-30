@@ -7,7 +7,7 @@ use prost::Message;
 use clorinde::queries::stop_times::insert_stop_time;
 use clorinde::deadpool_postgres::{Config, CreatePoolError, Pool, Runtime};
 use clorinde::tokio_postgres::NoTls;
-use stop_times::download_feed_and_populate_db;
+use stop_times::{download_feed_and_populate_db, get_next_n_deps};
 
 async fn create_pool() -> Result<Pool, CreatePoolError> {
     let mut cfg = Config::new();
@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let pool = create_pool().await?;
     let mut db_client = pool.get().await?;
-    download_feed_and_populate_db(&client, &mut db_client, "grt", GRT_GTFS).await?;
+    //download_feed_and_populate_db(&client, &mut db_client, "grt", GRT_GTFS).await?;
 
     let ast = stop_tree::ArchivedStopTree::unpack_from_files()?;
     let stops = ast.find_nearest(43.457787, -80.513526, NonZero::new(5).unwrap());
@@ -61,6 +61,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     for stop in stops {
         //let cursor = stop_time_map.lower_bound
+        let next_5_deps = get_next_n_deps(&mut db_client, now, &stop.stop_id, 5).await?;
+        println!("{:?}", next_5_deps);
     }
 
     Ok(())

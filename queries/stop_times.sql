@@ -44,3 +44,10 @@ INSERT INTO StopTimes (
     :pickup_booking_rule_id,
     :drop_off_booking_rule_id
 );
+
+--! get_next_departures_after_time : StopTimes
+SELECT * FROM StopTimes
+WHERE SortableTime > :time
+    AND stop_id = :stop_id 
+ORDER BY SortableTime ASC
+LIMIT :limit;
