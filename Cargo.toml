@@ -1,5 +1,5 @@
 [workspace]
-members = ["gtfs"]
+members = ["gtfs", "db_helpers"]
 
 [package]
 name = "departure_board_api"
@@ -20,6 +20,7 @@ tokio = { version = "1", features = ["full"] }
 zip = "2.6.1"
 clorinde = { path = "./clorinde" }
 gtfs = { path = "./gtfs" }
+db_helpers = { path = "./db_helpers" }
 bytes = "1.10.1"
 anyhow = "1.0.98"
 

@@ -1,7 +1,7 @@
-mod gtfs_reader;
-mod gtfs_time;
-mod stop;
-mod stop_time;
+pub mod gtfs_reader;
+pub mod gtfs_time;
+pub mod stop;
+pub mod stop_time;
 
 pub use stop::Stop;
 pub use stop_time::StopTime;

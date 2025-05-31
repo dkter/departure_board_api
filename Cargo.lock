@@ -393,6 +393,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "db_helpers"
+version = "0.1.0"
+dependencies = [
+ "clorinde",
+ "gtfs",
+]
+
+[[package]]
 name = "deadpool"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -441,6 +449,7 @@ dependencies = [
  "chrono",
  "clorinde",
  "csv",
+ "db_helpers",
  "futures",
  "gtfs",
  "gtfs-rt",
