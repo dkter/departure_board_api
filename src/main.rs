@@ -4,7 +4,6 @@ mod stop_times;
 
 use std::{error::Error, num::NonZero};
 use prost::Message;
-use clorinde::queries::stop_times::insert_stop_time;
 use clorinde::deadpool_postgres::{Config, CreatePoolError, Pool, Runtime};
 use clorinde::tokio_postgres::NoTls;
 use stop_times::{download_feed_and_populate_db, get_next_n_deps};

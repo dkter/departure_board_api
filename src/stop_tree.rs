@@ -7,7 +7,7 @@ use kiddo::ImmutableKdTree;
 use memmap::{Mmap, MmapOptions};
 use rkyv::ser::Serializer;
 use rkyv::ser::serializers::{AlignedSerializer, BufferScratch, CompositeSerializer};
-use crate::gtfs::{FromZip, Stop};
+use crate::gtfs::{self, Stop};
 
 const BUFFER_LEN: usize = 300_000_000;
 const SCRATCH_LEN: usize = 300_000_000;
@@ -31,7 +31,7 @@ async fn download_feed(
     let mut zip = zip::ZipArchive::new(reader).unwrap();
 
     println!("Done with {}", agency);
-    Ok(Vec::<Stop>::from_zip(&mut zip, agency))
+    Ok(gtfs::read_gtfs_objects_from_zip(&mut zip, agency).collect())
 }
 
 fn stops_to_kdtree(stops: &Vec<Stop>) -> ImmutableKdTree<f64, 2> {

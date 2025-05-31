@@ -1,12 +1,11 @@
-use crate::gtfs::{FromZip, GtfsTime, StopTime};
+use crate::gtfs::{self, GtfsTime, StopTime};
 use clorinde::client::Params;
 use clorinde::queries::stop_times::{
     InsertStopTimeParams, insert_stop_time, get_next_departures_after_time};
 use clorinde::tokio_postgres;
-use std::{error::Error, io::{Read, Seek, Cursor}};
-use tokio::task::JoinSet;
+use std::error::Error;
 
-pub async fn download_feed(
+pub async fn download_feed<'a>(
     client: &reqwest::Client,
     agency: &str,
     url: &str,
@@ -17,10 +16,10 @@ pub async fn download_feed(
         .await?;
     let content = resp.bytes().await?;
 
-    let reader = Cursor::new(content);
+    let reader = std::io::Cursor::new(content);
     let mut zip = zip::ZipArchive::new(reader).unwrap();
 
-    Ok(Vec::<StopTime>::from_zip(&mut zip, agency))
+    Ok(gtfs::read_gtfs_objects_from_zip(&mut zip, agency).collect())
 }
 
 fn stop_time_to_db_record(stop_time: StopTime) -> InsertStopTimeParams<String, String, String, String, String, String, String, String> {
@@ -76,9 +75,8 @@ pub async fn download_feed_and_populate_db(
     db_client: &mut tokio_postgres::Client,
     agency: &str,
     url: &str,
-) -> Result<(),
-Box<dyn Error>> {
-    let mut stop_times = download_feed(reqwest_client, agency, url).await?;
+) -> Result<(), Box<dyn Error>> {
+    let stop_times = download_feed(reqwest_client, agency, url).await?;
 
     // let mut join_set = stop_times.drain(..).map(move |stop_time| {
     //     let params = stop_time_to_db_record(stop_time);
