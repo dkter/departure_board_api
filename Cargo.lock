@@ -401,6 +401,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "db_populator"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "clorinde",
+ "gtfs",
+ "reqwest",
+ "tokio",
+ "zip",
+]
+
+[[package]]
 name = "deadpool"
 version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

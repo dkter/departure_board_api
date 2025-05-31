@@ -1,0 +1,14 @@
+[package]
+name = "db_populator"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+clorinde = { path = "../clorinde" }
+gtfs = { path = "../gtfs" }
+tokio.workspace = true
+zip.workspace = true
+anyhow.workspace = true
+reqwest.workspace = true
+bytes.workspace = true
