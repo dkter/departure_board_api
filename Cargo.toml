@@ -1,5 +1,5 @@
 [workspace]
-members = ["gtfs", "db_helpers", "db_populator"]
+members = ["config", "gtfs", "db_helpers", "db_populator"]
 
 [package]
 name = "departure_board_api"
@@ -23,6 +23,7 @@ gtfs = { path = "./gtfs" }
 db_helpers = { path = "./db_helpers" }
 bytes = "1.10.1"
 anyhow = "1.0.98"
+toml = "0.8.22"
 
 [dependencies.rkyv]
 version = "0.7"
@@ -47,6 +48,7 @@ gtfs = { path = "./gtfs" }
 db_helpers = { path = "./db_helpers" }
 bytes = "1.10.1"
 anyhow = "1.0.98"
+toml = "0.8.22"
 
 [workspace.dependencies.rkyv]
 version = "0.7"

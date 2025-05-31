@@ -1,7 +1,5 @@
 use anyhow::Result;
 
-const GRT_GTFS: &str = "https://www.regionofwaterloo.ca/opendatadownloads/GRT_GTFS.zip";
-
 pub async fn download_zip<'a>(
     client: &reqwest::Client,
     url: &str,
@@ -19,7 +17,8 @@ pub async fn download_zip<'a>(
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let cfg = config::read_config_from_file()?;
     let client = reqwest::Client::new();
-    let zip = download_zip(&client, GRT_GTFS).await?;
+    let zip = download_zip(&client, &cfg["grt"].gtfs_url).await?;
     Ok(())
 }
