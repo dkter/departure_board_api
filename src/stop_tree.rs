@@ -7,7 +7,7 @@ use kiddo::ImmutableKdTree;
 use memmap::{Mmap, MmapOptions};
 use rkyv::ser::Serializer;
 use rkyv::ser::serializers::{AlignedSerializer, BufferScratch, CompositeSerializer};
-use crate::gtfs::{self, Stop};
+use gtfs::Stop;
 
 const BUFFER_LEN: usize = 300_000_000;
 const SCRATCH_LEN: usize = 300_000_000;

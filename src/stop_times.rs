@@ -1,4 +1,4 @@
-use crate::gtfs::{self, GtfsTime, StopTime};
+use gtfs::{GtfsTime, StopTime};
 use anyhow::Result;
 use clorinde::client::Params;
 use clorinde::queries::stop_times::{

@@ -1,4 +1,3 @@
-mod gtfs;
 mod stop_tree;
 mod stop_times;
 

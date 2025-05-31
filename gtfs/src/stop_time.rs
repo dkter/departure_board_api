@@ -1,4 +1,4 @@
-use crate::gtfs::gtfs_time::GtfsTime;
+use crate::GtfsTime;
 
 /// GTFS Stop Time struct that supports deserializing from stop_times.txt via serde and csv.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]

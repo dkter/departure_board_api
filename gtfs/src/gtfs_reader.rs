@@ -1,5 +1,4 @@
-use crate::gtfs::stop::Stop;
-use crate::gtfs::stop_time::StopTime;
+use crate::{Stop, StopTime};
 use std::io::{Read, Seek};
 use anyhow::{Context, Result};
 
