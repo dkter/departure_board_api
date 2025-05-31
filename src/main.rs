@@ -2,7 +2,8 @@ mod gtfs;
 mod stop_tree;
 mod stop_times;
 
-use std::{error::Error, num::NonZero};
+use anyhow::Result;
+use std::num::NonZero;
 use prost::Message;
 use clorinde::deadpool_postgres::{Config, CreatePoolError, Pool, Runtime};
 use clorinde::tokio_postgres::NoTls;
@@ -22,7 +23,7 @@ const GRT_GTFS: &str = "https://www.regionofwaterloo.ca/opendatadownloads/GRT_GT
 const GRT_GTFS_RT_POS: &str = "http://webapps.regionofwaterloo.ca/api/grt-routes/api/vehiclepositions";
 const GRT_GTFS_RT_UPD: &str = "http://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates";
 
-async fn fetch_gtfs_rt(client: &reqwest::Client) -> Result<gtfs_rt::FeedMessage, Box<dyn Error>> {
+async fn fetch_gtfs_rt(client: &reqwest::Client) -> Result<gtfs_rt::FeedMessage> {
     let resp = client.get(GRT_GTFS_RT_UPD)
         .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36")
         .send()
@@ -32,7 +33,7 @@ async fn fetch_gtfs_rt(client: &reqwest::Client) -> Result<gtfs_rt::FeedMessage,
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<()> {
     let client = reqwest::Client::new();
     // let resp = client.get(GRT_GTFS_RT_UPD)
     //     .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36")

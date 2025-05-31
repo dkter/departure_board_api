@@ -1,7 +1,7 @@
 use std::io::Write;
-use std::error::Error;
 use std::fs::File;
 use std::num::NonZero;
+use anyhow::Result;
 use kiddo::immutable::float::kdtree::{AlignedArchivedImmutableKdTree, ImmutableKdTreeRK};
 use kiddo::ImmutableKdTree;
 use memmap::{Mmap, MmapOptions};
@@ -19,7 +19,7 @@ pub type ArchivedTree<'a> = AlignedArchivedImmutableKdTree<'a, f64, u64, 2, 32>;
 
 async fn download_feed(
     client: &reqwest::Client, agency: &str, url: &str
-) -> Result<Vec<Stop>, Box<dyn Error>> {
+) -> Result<Vec<Stop>> {
     println!("Downloading {}", agency);
     let resp = client.get(url)
         .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36")
@@ -31,7 +31,8 @@ async fn download_feed(
     let mut zip = zip::ZipArchive::new(reader).unwrap();
 
     println!("Done with {}", agency);
-    Ok(gtfs::read_gtfs_objects_from_zip(&mut zip, agency).collect())
+    let vec = gtfs::read_gtfs_objects_from_zip(&mut zip, agency)?.collect();
+    vec
 }
 
 fn stops_to_kdtree(stops: &Vec<Stop>) -> ImmutableKdTree<f64, 2> {
@@ -43,7 +44,7 @@ fn stops_to_kdtree(stops: &Vec<Stop>) -> ImmutableKdTree<f64, 2> {
 
 pub async fn download_and_pack_feed(
     client: &reqwest::Client, agency: &str, url: &str
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     let stops = download_feed(client, agency, url).await?;
     let tree = stops_to_kdtree(&stops);
     let tree_rk: ImmutableKdTreeRK<f64, u64, 2, 32> = tree.into();
@@ -84,7 +85,7 @@ pub struct ArchivedStopTree<'a> {
 }
 
 impl<'a> ArchivedStopTree<'a> {
-    pub fn unpack_from_files() -> Result<Self, Box<dyn Error>> {
+    pub fn unpack_from_files() -> Result<Self> {
         let kdtree_mmap = unsafe { MmapOptions::new().map(&File::open(KDTREE_FILENAME)?)? };
         let buf = unsafe {
             // The following call to transmute is safe (I think) because kdtree_mmap will be moved
