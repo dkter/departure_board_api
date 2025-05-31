@@ -8,8 +8,10 @@ publish = false
 clorinde = { path = "../clorinde" }
 gtfs = { path = "../gtfs" }
 config = { path = "../config" }
+db_helpers = { path = "../db_helpers" }
 tokio.workspace = true
 zip.workspace = true
 anyhow.workspace = true
 reqwest.workspace = true
 bytes.workspace = true
+futures.workspace = true

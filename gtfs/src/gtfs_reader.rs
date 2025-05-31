@@ -1,4 +1,4 @@
-use crate::{Stop, StopTime};
+use crate::{Stop, StopTime, Trip};
 use std::io::{Read, Seek};
 use anyhow::{Context, Result};
 
@@ -20,6 +20,16 @@ impl GtfsReadable for Stop {
 impl GtfsReadable for StopTime {
     fn get_file_name() -> &'static str {
         "stop_times.txt"
+    }
+
+    fn set_agency(&mut self, agency: String) {
+        self.agency = agency;
+    }
+}
+
+impl GtfsReadable for Trip {
+    fn get_file_name() -> &'static str {
+        "trips.txt"
     }
 
     fn set_agency(&mut self, agency: String) {
