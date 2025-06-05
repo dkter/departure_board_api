@@ -22,3 +22,17 @@ CREATE TABLE StopTimes (
 );
 
 CREATE INDEX SortableTimeIndex ON StopTimes USING HASH (SortableTime);
+
+CREATE TABLE Trips (
+    Agency varchar(32) NOT NULL,
+    route_id text NOT NULL,
+    service_id text NOT NULL,
+    trip_id text NOT NULL PRIMARY KEY,
+    trip_headsign text,
+    trip_short_name text,
+    direction_id int,
+    block_id text,
+    shape_id text,
+    wheelchair_accessible int,
+    bikes_allowed int
+);

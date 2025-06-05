@@ -1,9 +1,10 @@
 use anyhow::Result;
 use clorinde::client::Params;
-use clorinde::queries::stop_times::insert_stop_time;
+use clorinde::queries::{stop_times::insert_stop_time, trips::insert_trip};
 use clorinde::tokio_postgres;
 use clorinde::deadpool_postgres::{Config, CreatePoolError, Pool, Runtime};
-use db_helpers::stop_time::{stop_time_to_db_record, db_record_to_stop_time};
+use db_helpers::stop_time::stop_time_to_db_record;
+use db_helpers::trip::trip_to_db_record;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt;
 
@@ -37,28 +38,40 @@ async fn main() -> Result<()> {
     let cfg = config::read_config_from_file()?;
     let client = reqwest::Client::new();
     let pool = create_pool().await?;
-    let mut db_client = pool.get().await?;
+    let db_client = pool.get().await?;
 
     for (agency_name, agency_cfg) in cfg {
         let mut zip = download_zip(&client, &agency_cfg.gtfs_url).await?;
 
+        // let transaction = db_client.transaction().await?;
+
         let stop_times = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
-
-        let transaction = db_client.transaction().await?;
-
-        let task: FuturesUnordered<_> = stop_times.map(
+        let stop_times_task: FuturesUnordered<_> = stop_times.map(
             |stop_time| {
                 let params = stop_time_to_db_record(
                     stop_time.expect("Attempting to insert invalid stop time into database"));
                 {
-                    let transaction = &transaction;
+                    let transaction = &db_client;
                     async move { insert_stop_time().params(transaction, &params).await }
                 }
             }
         ).collect();
-        let _: Vec<_> = task.collect().await;
 
-        transaction.commit().await?;
+        let trips = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
+        let trips_task: FuturesUnordered<_> = trips.map(
+            |trip| {
+                let params = trip_to_db_record(
+                    trip.expect("Attempting to insert invalid stop time into database"));
+                {
+                    let transaction = &db_client;
+                    async move { insert_trip().params(transaction, &params).await }
+                }
+            }
+        ).collect();
+
+        let _: Vec<_> = stop_times_task.chain(trips_task).collect().await;
+
+        // transaction.commit().await?;
     }
     Ok(())
 }
