@@ -1,12 +1,16 @@
 use anyhow::Result;
 use clorinde::client::Params;
-use clorinde::queries::{stop_times::insert_stop_time, trips::insert_trip};
+use clorinde::queries::{
+    agencies::{get_agency_checksum, insert_agency, delete_agency},
+    stop_times::insert_stop_time,
+    trips::insert_trip,
+};
 use clorinde::tokio_postgres;
 use clorinde::deadpool_postgres::{Config, CreatePoolError, Pool, Runtime};
 use db_helpers::stop_time::stop_time_to_db_record;
 use db_helpers::trip::trip_to_db_record;
 use futures::stream::FuturesUnordered;
-use futures::StreamExt;
+use futures::{StreamExt, TryStreamExt};
 
 async fn create_pool() -> Result<Pool, CreatePoolError> {
     let mut cfg = Config::new();
@@ -33,45 +37,80 @@ async fn download_zip<'a>(
     Ok(zip_archive)
 }
 
+fn get_zip_checksum(zip_archive: &mut zip::ZipArchive<std::io::Cursor<bytes::Bytes>>) -> u64 {
+    let mut digest = crc_fast::Digest::new(crc_fast::CrcAlgorithm::Crc32IsoHdlc);
+    std::io::copy(&mut zip_archive.clone().into_inner(), &mut digest).unwrap();
+    digest.finalize()
+}
+
+async fn get_db_checksum(db_client: &mut tokio_postgres::Client, agency_name: &str) -> Result<Option<u64>> {
+    let result = get_agency_checksum().bind(db_client, &agency_name).all().await?;
+    Ok(match result.len() {
+        1 => Some(result[0] as u64),
+        0 => None,
+        _ => panic!("Unexpected number of results returned by get_agency_checksum"),
+    })
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cfg = config::read_config_from_file()?;
     let client = reqwest::Client::new();
     let pool = create_pool().await?;
-    let db_client = pool.get().await?;
+    let mut db_client = pool.get().await?;
 
     for (agency_name, agency_cfg) in cfg {
-        let mut zip = download_zip(&client, &agency_cfg.gtfs_url).await?;
+        let (zip, checksum) = tokio::join!(
+            download_zip(&client, &agency_cfg.gtfs_url),
+            get_db_checksum(&mut db_client, &agency_name),
+        );
+        let mut zip = zip?;
+        let zip_checksum = get_zip_checksum(&mut zip);
 
-        // let transaction = db_client.transaction().await?;
+        let should_insert = match checksum? {
+            Some(c) if zip_checksum == c => false,  // Found and checksum correct
+            None => true,  // Not found
+            Some(_) => {
+                // There is an agency with the given name already in the db,
+                // but with an out-of-date checksum
+                delete_agency().bind(&mut db_client, &agency_name).await?;
+                true
+            },
+        };
+        
+        if should_insert {
+            insert_agency().bind(&mut db_client, &agency_name, &(zip_checksum as i64)).await?;
 
-        let stop_times = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
-        let stop_times_task: FuturesUnordered<_> = stop_times.map(
-            |stop_time| {
-                let params = stop_time_to_db_record(
-                    stop_time.expect("Attempting to insert invalid stop time into database"));
-                {
-                    let transaction = &db_client;
-                    async move { insert_stop_time().params(transaction, &params).await }
+            let stop_times = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
+            let stop_times_task: FuturesUnordered<_> = stop_times.map(
+                |stop_time| {
+                    let params = stop_time_to_db_record(
+                        stop_time.expect("Attempting to insert invalid stop time into database"));
+                    {
+                        let transaction = &db_client;
+                        async move { insert_stop_time().params(transaction, &params).await }
+                    }
                 }
-            }
-        ).collect();
+            ).collect();
 
-        let trips = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
-        let trips_task: FuturesUnordered<_> = trips.map(
-            |trip| {
-                let params = trip_to_db_record(
-                    trip.expect("Attempting to insert invalid stop time into database"));
-                {
-                    let transaction = &db_client;
-                    async move { insert_trip().params(transaction, &params).await }
+            let trips = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
+            let trips_task: FuturesUnordered<_> = trips.map(
+                |trip| {
+                    let params = trip_to_db_record(
+                        trip.expect("Attempting to insert invalid stop time into database"));
+                    {
+                        let transaction = &db_client;
+                        async move { insert_trip().params(transaction, &params).await }
+                    }
                 }
-            }
-        ).collect();
+            ).collect();
 
-        let _: Vec<_> = stop_times_task.chain(trips_task).collect().await;
+            let rows_affected: u64 = stop_times_task.chain(trips_task)
+                .try_fold(0, |acc, x| async move { Ok(acc + x) })
+                .await?;
 
-        // transaction.commit().await?;
+            println!("Inserted agency {} with {} rows", agency_name, rows_affected);
+        }
     }
     Ok(())
 }

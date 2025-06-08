@@ -1,5 +1,10 @@
+CREATE TABLE Agencies (
+    Agency varchar(32) NOT NULL PRIMARY KEY,
+    checksum bigint NOT NULL
+);
+
 CREATE TABLE StopTimes (
-    Agency varchar(32) NOT NULL,
+    Agency varchar(32) NOT NULL REFERENCES Agencies ON DELETE CASCADE,
     SortableTime int NOT NULL,
     trip_id text NOT NULL,
     arrival_time int,
@@ -24,7 +29,7 @@ CREATE TABLE StopTimes (
 CREATE INDEX SortableTimeIndex ON StopTimes USING HASH (SortableTime);
 
 CREATE TABLE Trips (
-    Agency varchar(32) NOT NULL,
+    Agency varchar(32) NOT NULL REFERENCES Agencies ON DELETE CASCADE,
     route_id text NOT NULL,
     service_id text NOT NULL,
     trip_id text NOT NULL PRIMARY KEY,
