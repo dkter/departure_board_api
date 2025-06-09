@@ -4,11 +4,13 @@ use clorinde::queries::{
     agencies::{get_agency_checksum, insert_agency, delete_agency},
     stop_times::insert_stop_time,
     trips::insert_trip,
+    stops::insert_stop,
 };
 use clorinde::tokio_postgres;
 use clorinde::deadpool_postgres::{Config, CreatePoolError, Pool, Runtime};
 use db_helpers::stop_time::stop_time_to_db_record;
 use db_helpers::trip::trip_to_db_record;
+use db_helpers::stop::stop_to_db_record;
 use futures::stream::FuturesUnordered;
 use futures::{StreamExt, TryStreamExt};
 
@@ -97,7 +99,7 @@ async fn main() -> Result<()> {
             let trips_task: FuturesUnordered<_> = trips.map(
                 |trip| {
                     let params = trip_to_db_record(
-                        trip.expect("Attempting to insert invalid stop time into database"));
+                        trip.expect("Attempting to insert invalid trip into database"));
                     {
                         let transaction = &db_client;
                         async move { insert_trip().params(transaction, &params).await }
@@ -105,7 +107,19 @@ async fn main() -> Result<()> {
                 }
             ).collect();
 
-            let rows_affected: u64 = stop_times_task.chain(trips_task)
+            let stops = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
+            let stops_task: FuturesUnordered<_> = stops.map(
+                |stop| {
+                    let params = stop_to_db_record(
+                        stop.expect("Attempting to insert invalid stop into database"));
+                    {
+                        let transaction = &db_client;
+                        async move { insert_stop().params(transaction, &params).await }
+                    }
+                }
+            ).collect();
+
+            let rows_affected: u64 = stop_times_task.chain(trips_task).chain(stops_task)
                 .try_fold(0, |acc, x| async move { Ok(acc + x) })
                 .await?;
 

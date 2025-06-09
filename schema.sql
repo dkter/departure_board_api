@@ -41,3 +41,23 @@ CREATE TABLE Trips (
     wheelchair_accessible int,
     bikes_allowed int
 );
+
+CREATE TABLE Stops (
+    Agency varchar(32) NOT NULL REFERENCES Agencies ON DELETE CASCADE,
+    stop_id text NOT NULL PRIMARY KEY,
+    stop_code text,
+    stop_name text NOT NULL,
+    tts_stop_name text,
+    stop_desc text,
+    stop_lat_lon point NOT NULL,
+    zone_id text,
+    stop_url text,
+    location_type text,
+    parent_station text,
+    stop_timezone text,
+    wheelchair_boarding int,
+    level_id text,
+    platform_code text
+);
+
+CREATE INDEX StopPointsIndex ON Stops USING SPGIST (stop_lat_lon);

@@ -2,4 +2,5 @@
 
 pub mod agencies;
 pub mod stop_times;
+pub mod stops;
 pub mod trips;
