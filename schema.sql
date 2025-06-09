@@ -61,3 +61,20 @@ CREATE TABLE Stops (
 );
 
 CREATE INDEX StopPointsIndex ON Stops USING SPGIST (stop_lat_lon);
+
+CREATE TABLE Routes (
+    Agency varchar(32) NOT NULL REFERENCES Agencies ON DELETE CASCADE,
+    route_id text NOT NULL PRIMARY KEY,
+    agency_id text,
+    route_short_name text,
+    route_long_name text,
+    route_desc text,
+    route_type int,
+    route_url text,
+    route_color char(6),
+    route_text_color char(6),
+    route_sort_order int,
+    continuous_pickup int,
+    continuous_drop_off int,
+    network_id text
+);
