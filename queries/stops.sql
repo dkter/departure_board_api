@@ -56,3 +56,9 @@ SELECT
 FROM Stops
 ORDER BY stop_lat_lon <-> point (:lat, :lon)
 LIMIT :limit;
+
+--! delete_index
+DROP INDEX IF EXISTS StopPointsIndex;
+
+--! create_index
+CREATE INDEX StopPointsIndex ON Stops USING SPGIST (stop_lat_lon);

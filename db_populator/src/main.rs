@@ -65,6 +65,10 @@ async fn main() -> Result<()> {
     let pool = create_pool().await?;
     let mut db_client = pool.get().await?;
 
+    // Temporarily delete indexes for performance
+    clorinde::queries::stop_times::delete_index().bind(&db_client).await?;
+    clorinde::queries::stops::delete_index().bind(&db_client).await?;
+
     for (agency_name, agency_cfg) in cfg {
         let (zip, checksum) = tokio::join!(
             download_zip(&client, &agency_cfg.gtfs_url),
@@ -149,5 +153,10 @@ async fn main() -> Result<()> {
             println!("Inserted agency {} with {} rows", agency_name, rows_affected);
         }
     }
+
+    // Recreate deleted indexes
+    clorinde::queries::stop_times::create_index().bind(&db_client).await?;
+    clorinde::queries::stops::create_index().bind(&db_client).await?;
+
     Ok(())
 }

@@ -51,3 +51,9 @@ WHERE SortableTime > :time
     AND stop_id = :stop_id 
 ORDER BY SortableTime ASC
 LIMIT :limit;
+
+--! delete_index
+DROP INDEX IF EXISTS SortableTimeIndex;
+
+--! create_index
+CREATE INDEX SortableTimeIndex ON StopTimes USING HASH (SortableTime);

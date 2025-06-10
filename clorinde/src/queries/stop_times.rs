@@ -382,3 +382,33 @@ impl<'c, 'a, 's, C: GenericClient, T1: crate::StringSql>
         self.bind(client, &params.time, &params.stop_id, &params.limit)
     }
 }
+pub fn delete_index() -> DeleteIndexStmt {
+    DeleteIndexStmt(crate::client::async_::Stmt::new(
+        "DROP INDEX IF EXISTS SortableTimeIndex",
+    ))
+}
+pub struct DeleteIndexStmt(crate::client::async_::Stmt);
+impl DeleteIndexStmt {
+    pub async fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s mut self,
+        client: &'c C,
+    ) -> Result<u64, tokio_postgres::Error> {
+        let stmt = self.0.prepare(client).await?;
+        client.execute(stmt, &[]).await
+    }
+}
+pub fn create_index() -> CreateIndexStmt {
+    CreateIndexStmt(crate::client::async_::Stmt::new(
+        "CREATE INDEX SortableTimeIndex ON StopTimes USING HASH (SortableTime)",
+    ))
+}
+pub struct CreateIndexStmt(crate::client::async_::Stmt);
+impl CreateIndexStmt {
+    pub async fn bind<'c, 'a, 's, C: GenericClient>(
+        &'s mut self,
+        client: &'c C,
+    ) -> Result<u64, tokio_postgres::Error> {
+        let stmt = self.0.prepare(client).await?;
+        client.execute(stmt, &[]).await
+    }
+}
