@@ -85,7 +85,9 @@ async fn main() -> Result<()> {
         };
         
         if should_insert {
-            insert_agency().bind(&mut db_client, &agency_name, &(zip_checksum as i64)).await?;
+            let mut transaction = db_client.transaction().await?;
+
+            insert_agency().bind(&mut transaction, &agency_name, &(zip_checksum as i64)).await?;
 
             let stop_times = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
             let stop_times_task: FuturesUnordered<_> = stop_times.map(
@@ -93,7 +95,7 @@ async fn main() -> Result<()> {
                     let params = stop_time_to_db_record(
                         stop_time.expect("Attempting to insert invalid stop time into database"));
                     {
-                        let transaction = &db_client;
+                        let transaction = &transaction;
                         async move { insert_stop_time().params(transaction, &params).await }
                     }
                 }
@@ -105,7 +107,7 @@ async fn main() -> Result<()> {
                     let params = trip_to_db_record(
                         trip.expect("Attempting to insert invalid trip into database"));
                     {
-                        let transaction = &db_client;
+                        let transaction = &transaction;
                         async move { insert_trip().params(transaction, &params).await }
                     }
                 }
@@ -117,7 +119,7 @@ async fn main() -> Result<()> {
                     let params = stop_to_db_record(
                         stop.expect("Attempting to insert invalid stop into database"));
                     {
-                        let transaction = &db_client;
+                        let transaction = &transaction;
                         async move { insert_stop().params(transaction, &params).await }
                     }
                 }
@@ -129,7 +131,7 @@ async fn main() -> Result<()> {
                     let params = route_to_db_record(
                         route.expect("Attempting to insert invalid route into database"));
                     {
-                        let transaction = &db_client;
+                        let transaction = &transaction;
                         async move { insert_route().params(transaction, &params).await }
                     }
                 }
@@ -141,6 +143,8 @@ async fn main() -> Result<()> {
                 .chain(routes_task)
                 .try_fold(0, |acc, x| async move { Ok(acc + x) })
                 .await?;
+
+            transaction.commit().await?;
 
             println!("Inserted agency {} with {} rows", agency_name, rows_affected);
         }
