@@ -1,0 +1,20 @@
+[package]
+name = "departure_server"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+clorinde = { path = "../clorinde" }
+config = { path = "../config" }
+gtfs = { path = "../gtfs" }
+db_helpers = { path = "../db_helpers" }
+tokio.workspace = true
+zip.workspace = true
+anyhow.workspace = true
+reqwest.workspace = true
+bytes.workspace = true
+futures.workspace = true
+thiserror.workspace = true
+deadpool.workspace = true
+actix-web = "4"
