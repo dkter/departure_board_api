@@ -1,7 +1,9 @@
 mod error;
+mod formatter;
 
 use actix_web::{get, web, App, HttpServer, Responder};
 use clorinde::{deadpool_postgres::{Config, CreatePoolError, Pool, Runtime}, queries::combined::get_next_deps_near_point, tokio_postgres::NoTls};
+use crate::formatter::Formatter;
 
 struct AppState {
     pool: Pool,
@@ -13,7 +15,13 @@ async fn get_departures(path: web::Path<(f64, f64, u64)>, data: web::Data<AppSta
     let (lat, lon, limit) = path.into_inner();
     let now = gtfs::GtfsTime::local_now();
     let result = get_next_deps_near_point().bind(&db_client, &lat, &lon, &(limit as i64), &now.into()).all().await?;
-    Ok(format!("{:?}!", result))
+
+    let formatted_data = result.iter().map(|r| {
+        let f = formatter::get_formatter_from_agency(&r.agency);
+        f.format(r)
+    }).collect::<Vec<_>>();
+
+    Ok(format!("{:?}!", formatted_data))
 }
 
 async fn create_pool() -> Result<Pool, CreatePoolError> {
