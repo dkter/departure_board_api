@@ -1,16 +1,16 @@
 mod error;
 mod formatter;
 
-use actix_web::{get, web, App, HttpServer, Responder};
+use actix_web::{get, web, App, HttpServer};
 use clorinde::{deadpool_postgres::{Config, CreatePoolError, Pool, Runtime}, queries::combined::get_next_deps_near_point, tokio_postgres::NoTls};
-use crate::formatter::Formatter;
+use crate::formatter::{Formatter, FormattedData};
 
 struct AppState {
     pool: Pool,
 }
 
 #[get("/departures/{lat}/{lon}/{limit}")]
-async fn get_departures(path: web::Path<(f64, f64, u64)>, data: web::Data<AppState>) -> error::Result<impl Responder> {
+async fn get_departures(path: web::Path<(f64, f64, u64)>, data: web::Data<AppState>) -> error::Result<web::Json<Vec<FormattedData>>> {
     let db_client = data.pool.get().await?;
     let (lat, lon, limit) = path.into_inner();
     let now = gtfs::GtfsTime::local_now();
@@ -21,7 +21,7 @@ async fn get_departures(path: web::Path<(f64, f64, u64)>, data: web::Data<AppSta
         f.format(r)
     }).collect::<Vec<_>>();
 
-    Ok(format!("{:?}!", formatted_data))
+    Ok(web::Json(formatted_data))
 }
 
 async fn create_pool() -> Result<Pool, CreatePoolError> {

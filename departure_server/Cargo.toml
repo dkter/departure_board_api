@@ -17,4 +17,5 @@ bytes.workspace = true
 futures.workspace = true
 thiserror.workspace = true
 deadpool.workspace = true
+serde.workspace = true
 actix-web = "4"

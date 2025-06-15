@@ -759,6 +759,7 @@ dependencies = [
  "futures",
  "gtfs",
  "reqwest",
+ "serde",
  "thiserror",
  "tokio",
  "zip",

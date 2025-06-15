@@ -1,6 +1,6 @@
 use clorinde::queries::combined::DepartureResult;
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize)]
 pub struct FormattedData {
     pub time: u32,
     pub stop_name: String,
