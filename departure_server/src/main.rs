@@ -32,7 +32,24 @@ async fn get_agency_updates(
     Ok(message)
 }
 
-fn apply_updates_to_formatted_data(
+fn get_updated_departure_time(
+    update: &gtfs_rt::trip_update::StopTimeUpdate,
+    timezone: &chrono_tz::Tz
+) -> Option<GtfsTime> {
+    let stop_time_event = update.departure.as_ref().or(update.arrival.as_ref());
+    if let Some(stop_time_event) = stop_time_event {
+        if let Some(time) = stop_time_event.time {
+            let chrono_time = chrono::DateTime::from_timestamp(time, 0).unwrap()
+                .with_timezone(timezone);
+            let new_time = GtfsTime::from_chrono_time(chrono_time);
+            return Some(new_time);
+        }
+    }
+    None
+}
+
+fn apply_updates_to_formatted_data_list(
+    now: &gtfs::GtfsTime,
     updates: &HashMap<&String, gtfs_rt::FeedMessage>,
     formatted_data: &mut Vec<FormattedData>,
 ) {
@@ -42,17 +59,26 @@ fn apply_updates_to_formatted_data(
                 // handle trip updates
                 if let Some(trip_update) = &entity.trip_update {
                     if trip_update.trip.trip_id.as_ref().is_some_and(|trip_id| trip_id == &fd.trip_id) {
-                        // apply update
+                        // If this trip update mentions our stop, update the departure time of that stop
                         for stop_time_update in &trip_update.stop_time_update {
                             if stop_time_update.stop_id.as_ref().is_some_and(|stop_id| stop_id == &fd.stop_id) {
-                                let stop_time_event = stop_time_update.departure.as_ref().or(stop_time_update.arrival.as_ref());
-                                if let Some(stop_time_event) = stop_time_event {
-                                    if let Some(time) = stop_time_event.time {
-                                        let chrono_time = chrono::DateTime::from_timestamp(time, 0).unwrap()
-                                            .with_timezone(&fd.timezone);
-                                        let new_time = GtfsTime::from_chrono_time(chrono_time);
-                                        println!("dbg: adjusting time {:?} -> {:?} for trip {}", GtfsTime::from(fd.time), new_time, fd.trip_id);
-                                        fd.time = new_time.into();
+                                if let Some(updated_time) = get_updated_departure_time(stop_time_update, &fd.timezone) {
+                                    println!("dbg: adjusting time {:?} -> {:?} for trip {}",
+                                            GtfsTime::from(fd.time), updated_time, fd.trip_id);
+                                    fd.time = updated_time.into();
+                                }
+                            }
+                        }
+                    } else if trip_update.trip.route_id.as_ref().is_some_and(|route_id| route_id == &fd.route_id) {
+                        // If this trip update has a departure after the current time but before the scheduled departure,
+                        // replace the scheduled departure with that one
+                        for stop_time_update in &trip_update.stop_time_update {
+                            if stop_time_update.stop_id.as_ref().is_some_and(|stop_id| stop_id == &fd.stop_id) {
+                                if let Some(updated_time) = get_updated_departure_time(stop_time_update, &fd.timezone) {
+                                    if now < &updated_time && updated_time < fd.time.into() {
+                                        println!("dbg: adjusting time {:?} -> {:?} for trip {}",
+                                                GtfsTime::from(fd.time), updated_time, fd.trip_id);
+                                        fd.time = updated_time.into();
                                     }
                                 }
                             }
@@ -95,7 +121,7 @@ async fn get_departures(path: web::Path<(f64, f64, u64)>, data: web::Data<AppSta
         f.format(r)
     }).collect::<Vec<_>>();
 
-    apply_updates_to_formatted_data(&updates, &mut formatted_data);
+    apply_updates_to_formatted_data_list(&now, &updates, &mut formatted_data);
 
     Ok(web::Json(formatted_data))
 }
