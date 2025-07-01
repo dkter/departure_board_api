@@ -1,5 +1,5 @@
 --! insert_agency
-INSERT INTO Agencies (Agency, checksum) VALUES (:agency, :checksum);
+INSERT INTO Agencies (Agency, checksum, timezone) VALUES (:agency, :checksum, :timezone);
 
 --! delete_agency
 DELETE FROM Agencies WHERE Agency = :agency;

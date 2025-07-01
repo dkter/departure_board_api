@@ -1,10 +1,12 @@
 pub mod gtfs_reader;
 pub mod gtfs_time;
+pub mod agency;
 pub mod stop;
 pub mod stop_time;
 pub mod trip;
 pub mod route;
 
+pub use agency::Agency;
 pub use stop::Stop;
 pub use stop_time::StopTime;
 pub use trip::Trip;

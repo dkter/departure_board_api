@@ -91,7 +91,19 @@ async fn main() -> Result<()> {
         if should_insert {
             let mut transaction = db_client.transaction().await?;
 
-            insert_agency().bind(&mut transaction, &agency_name, &(zip_checksum as i64)).await?;
+            let timezone = {
+                let mut gtfs_agencies = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
+                // According to the GTFS reference, if multiple agencies are specifed in agency.txt,
+                // they must all have the same agency_timezone.
+                // The distinctions between items in agency.txt don't matter to us beyond this, so we
+                // only need to read the first one
+                let first_gtfs_agency: gtfs::Agency = gtfs_agencies.next().unwrap()?;
+                first_gtfs_agency.agency_timezone
+            };
+
+            insert_agency().bind(
+                &mut transaction, &agency_name, &(zip_checksum as i64), &timezone
+            ).await?;
 
             let stop_times = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
             let stop_times_task: FuturesUnordered<_> = stop_times.map(

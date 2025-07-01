@@ -1,9 +1,10 @@
 // This file was generated with `clorinde`. Do not modify.
 
 #[derive(Debug)]
-pub struct InsertAgencyParams<T1: crate::StringSql> {
+pub struct InsertAgencyParams<T1: crate::StringSql, T2: crate::StringSql> {
     pub agency: T1,
     pub checksum: i64,
+    pub timezone: T2,
 }
 use crate::client::async_::GenericClient;
 use futures::{self, StreamExt, TryStreamExt};
@@ -70,27 +71,28 @@ where
 }
 pub fn insert_agency() -> InsertAgencyStmt {
     InsertAgencyStmt(crate::client::async_::Stmt::new(
-        "INSERT INTO Agencies (Agency, checksum) VALUES ($1, $2)",
+        "INSERT INTO Agencies (Agency, checksum, timezone) VALUES ($1, $2, $3)",
     ))
 }
 pub struct InsertAgencyStmt(crate::client::async_::Stmt);
 impl InsertAgencyStmt {
-    pub async fn bind<'c, 'a, 's, C: GenericClient, T1: crate::StringSql>(
+    pub async fn bind<'c, 'a, 's, C: GenericClient, T1: crate::StringSql, T2: crate::StringSql>(
         &'s mut self,
         client: &'c C,
         agency: &'a T1,
         checksum: &'a i64,
+        timezone: &'a T2,
     ) -> Result<u64, tokio_postgres::Error> {
         let stmt = self.0.prepare(client).await?;
-        client.execute(stmt, &[agency, checksum]).await
+        client.execute(stmt, &[agency, checksum, timezone]).await
     }
 }
-impl<'a, C: GenericClient + Send + Sync, T1: crate::StringSql>
+impl<'a, C: GenericClient + Send + Sync, T1: crate::StringSql, T2: crate::StringSql>
     crate::client::async_::Params<
         'a,
         'a,
         'a,
-        InsertAgencyParams<T1>,
+        InsertAgencyParams<T1, T2>,
         std::pin::Pin<
             Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
         >,
@@ -100,11 +102,11 @@ impl<'a, C: GenericClient + Send + Sync, T1: crate::StringSql>
     fn params(
         &'a mut self,
         client: &'a C,
-        params: &'a InsertAgencyParams<T1>,
+        params: &'a InsertAgencyParams<T1, T2>,
     ) -> std::pin::Pin<
         Box<dyn futures::Future<Output = Result<u64, tokio_postgres::Error>> + Send + 'a>,
     > {
-        Box::pin(self.bind(client, &params.agency, &params.checksum))
+        Box::pin(self.bind(client, &params.agency, &params.checksum, &params.timezone))
     }
 }
 pub fn delete_agency() -> DeleteAgencyStmt {

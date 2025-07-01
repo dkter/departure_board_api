@@ -1,6 +1,7 @@
 CREATE TABLE Agencies (
     Agency varchar(32) NOT NULL PRIMARY KEY,
-    checksum bigint NOT NULL
+    checksum bigint NOT NULL,
+    timezone text NOT NULL,
 );
 
 CREATE TABLE StopTimes (

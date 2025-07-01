@@ -239,27 +239,30 @@ impl InsertStopTimeStmt {
     ) -> Result<u64, tokio_postgres::Error> {
         let stmt = self.0.prepare(client).await?;
         client
-            .execute(stmt, &[
-                agency,
-                departure_time,
-                end_pickup_drop_off_window,
-                arrival_time,
-                start_pickup_drop_off_window,
-                trip_id,
-                stop_id,
-                location_group_id,
-                location_id,
-                stop_sequence,
-                stop_headsign,
-                pickup_type,
-                drop_off_type,
-                continuous_pickup,
-                continuous_drop_off,
-                shape_dist_traveled,
-                timepoint,
-                pickup_booking_rule_id,
-                drop_off_booking_rule_id,
-            ])
+            .execute(
+                stmt,
+                &[
+                    agency,
+                    departure_time,
+                    end_pickup_drop_off_window,
+                    arrival_time,
+                    start_pickup_drop_off_window,
+                    trip_id,
+                    stop_id,
+                    location_group_id,
+                    location_id,
+                    stop_sequence,
+                    stop_headsign,
+                    pickup_type,
+                    drop_off_type,
+                    continuous_pickup,
+                    continuous_drop_off,
+                    shape_dist_traveled,
+                    timepoint,
+                    pickup_booking_rule_id,
+                    drop_off_booking_rule_id,
+                ],
+            )
             .await
     }
 }

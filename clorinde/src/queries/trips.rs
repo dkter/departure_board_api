@@ -62,19 +62,22 @@ impl InsertTripStmt {
     ) -> Result<u64, tokio_postgres::Error> {
         let stmt = self.0.prepare(client).await?;
         client
-            .execute(stmt, &[
-                agency,
-                route_id,
-                service_id,
-                trip_id,
-                trip_headsign,
-                trip_short_name,
-                direction_id,
-                block_id,
-                shape_id,
-                wheelchair_accessible,
-                bikes_allowed,
-            ])
+            .execute(
+                stmt,
+                &[
+                    agency,
+                    route_id,
+                    service_id,
+                    trip_id,
+                    trip_headsign,
+                    trip_short_name,
+                    direction_id,
+                    block_id,
+                    shape_id,
+                    wheelchair_accessible,
+                    bikes_allowed,
+                ],
+            )
             .await
     }
 }
