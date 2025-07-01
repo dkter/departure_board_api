@@ -17,11 +17,12 @@ WITH next_deps_of_nearest_stops AS (
     WHERE SortableTime >= :time AND SortableTime < :time + 7200
 )
 SELECT
-    agency, sortabletime, stop_id, stop_code, stop_name,
+    agency, sortabletime, timezone, stop_id, stop_code, stop_name,
     stop_lat_lon[0] as stop_lat,
     stop_lat_lon[1] as stop_lon,
     route_id, route_short_name, route_long_name, route_color, route_text_color, route_type,
-    trip_headsign, direction_id
+    trip_id, trip_headsign, direction_id
 FROM next_deps_of_nearest_stops
 JOIN routes USING (agency, route_id)
+JOIN agencies USING (agency)
 WHERE nth_of_route = 1;

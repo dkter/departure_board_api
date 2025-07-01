@@ -11,6 +11,7 @@ pub struct GetNextDepsNearPointParams {
 pub struct DepartureResult {
     pub agency: String,
     pub sortabletime: i32,
+    pub timezone: String,
     pub stop_id: String,
     pub stop_code: Option<String>,
     pub stop_name: String,
@@ -22,12 +23,14 @@ pub struct DepartureResult {
     pub route_color: Option<String>,
     pub route_text_color: Option<String>,
     pub route_type: Option<i32>,
+    pub trip_id: String,
     pub trip_headsign: Option<String>,
     pub direction_id: Option<i32>,
 }
 pub struct DepartureResultBorrowed<'a> {
     pub agency: &'a str,
     pub sortabletime: i32,
+    pub timezone: &'a str,
     pub stop_id: &'a str,
     pub stop_code: Option<&'a str>,
     pub stop_name: &'a str,
@@ -39,6 +42,7 @@ pub struct DepartureResultBorrowed<'a> {
     pub route_color: Option<&'a str>,
     pub route_text_color: Option<&'a str>,
     pub route_type: Option<i32>,
+    pub trip_id: &'a str,
     pub trip_headsign: Option<&'a str>,
     pub direction_id: Option<i32>,
 }
@@ -47,6 +51,7 @@ impl<'a> From<DepartureResultBorrowed<'a>> for DepartureResult {
         DepartureResultBorrowed {
             agency,
             sortabletime,
+            timezone,
             stop_id,
             stop_code,
             stop_name,
@@ -58,6 +63,7 @@ impl<'a> From<DepartureResultBorrowed<'a>> for DepartureResult {
             route_color,
             route_text_color,
             route_type,
+            trip_id,
             trip_headsign,
             direction_id,
         }: DepartureResultBorrowed<'a>,
@@ -65,6 +71,7 @@ impl<'a> From<DepartureResultBorrowed<'a>> for DepartureResult {
         Self {
             agency: agency.into(),
             sortabletime,
+            timezone: timezone.into(),
             stop_id: stop_id.into(),
             stop_code: stop_code.map(|v| v.into()),
             stop_name: stop_name.into(),
@@ -76,6 +83,7 @@ impl<'a> From<DepartureResultBorrowed<'a>> for DepartureResult {
             route_color: route_color.map(|v| v.into()),
             route_text_color: route_text_color.map(|v| v.into()),
             route_type,
+            trip_id: trip_id.into(),
             trip_headsign: trip_headsign.map(|v| v.into()),
             direction_id,
         }
@@ -149,7 +157,7 @@ where
 }
 pub fn get_next_deps_near_point() -> GetNextDepsNearPointStmt {
     GetNextDepsNearPointStmt(crate::client::async_::Stmt::new(
-        "WITH next_deps_of_nearest_stops AS ( WITH n_nearest_stops AS ( SELECT * FROM Stops ORDER BY stop_lat_lon <-> point ($1, $2) LIMIT $3 ) SELECT *, ROW_NUMBER() OVER (PARTITION BY (agency, route_id, direction_id) ORDER BY SortableTime ASC) nth_of_route FROM StopTimes JOIN n_nearest_stops USING (agency, stop_id) JOIN trips USING (agency, trip_id) WHERE SortableTime >= $4 AND SortableTime < $4 + 7200 ) SELECT agency, sortabletime, stop_id, stop_code, stop_name, stop_lat_lon[0] as stop_lat, stop_lat_lon[1] as stop_lon, route_id, route_short_name, route_long_name, route_color, route_text_color, route_type, trip_headsign, direction_id FROM next_deps_of_nearest_stops JOIN routes USING (agency, route_id) WHERE nth_of_route = 1",
+        "WITH next_deps_of_nearest_stops AS ( WITH n_nearest_stops AS ( SELECT * FROM Stops ORDER BY stop_lat_lon <-> point ($1, $2) LIMIT $3 ) SELECT *, ROW_NUMBER() OVER (PARTITION BY (agency, route_id, direction_id) ORDER BY SortableTime ASC) nth_of_route FROM StopTimes JOIN n_nearest_stops USING (agency, stop_id) JOIN trips USING (agency, trip_id) WHERE SortableTime >= $4 AND SortableTime < $4 + 7200 ) SELECT agency, sortabletime, timezone, stop_id, stop_code, stop_name, stop_lat_lon[0] as stop_lat, stop_lat_lon[1] as stop_lon, route_id, route_short_name, route_long_name, route_color, route_text_color, route_type, trip_id, trip_headsign, direction_id FROM next_deps_of_nearest_stops JOIN routes USING (agency, route_id) JOIN agencies USING (agency) WHERE nth_of_route = 1",
     ))
 }
 pub struct GetNextDepsNearPointStmt(crate::client::async_::Stmt);
@@ -172,19 +180,21 @@ impl GetNextDepsNearPointStmt {
                 Ok(DepartureResultBorrowed {
                     agency: row.try_get(0)?,
                     sortabletime: row.try_get(1)?,
-                    stop_id: row.try_get(2)?,
-                    stop_code: row.try_get(3)?,
-                    stop_name: row.try_get(4)?,
-                    stop_lat: row.try_get(5)?,
-                    stop_lon: row.try_get(6)?,
-                    route_id: row.try_get(7)?,
-                    route_short_name: row.try_get(8)?,
-                    route_long_name: row.try_get(9)?,
-                    route_color: row.try_get(10)?,
-                    route_text_color: row.try_get(11)?,
-                    route_type: row.try_get(12)?,
-                    trip_headsign: row.try_get(13)?,
-                    direction_id: row.try_get(14)?,
+                    timezone: row.try_get(2)?,
+                    stop_id: row.try_get(3)?,
+                    stop_code: row.try_get(4)?,
+                    stop_name: row.try_get(5)?,
+                    stop_lat: row.try_get(6)?,
+                    stop_lon: row.try_get(7)?,
+                    route_id: row.try_get(8)?,
+                    route_short_name: row.try_get(9)?,
+                    route_long_name: row.try_get(10)?,
+                    route_color: row.try_get(11)?,
+                    route_text_color: row.try_get(12)?,
+                    route_type: row.try_get(13)?,
+                    trip_id: row.try_get(14)?,
+                    trip_headsign: row.try_get(15)?,
+                    direction_id: row.try_get(16)?,
                 })
             },
             mapper: |it| DepartureResult::from(it),

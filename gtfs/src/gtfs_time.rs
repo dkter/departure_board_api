@@ -23,10 +23,27 @@ impl From<i32> for GtfsTime {
     }
 }
 
+impl From<u32> for GtfsTime {
+    /// Here, value is a number of seconds since midnight
+    fn from(value: u32) -> Self {
+        let hrs = value / 3600;
+        let mins = (value % 3600) / 60;
+        let secs = (value % 3600) % 60;
+        Self(hrs as u8, mins as u8, secs as u8)
+    }
+}
+
 impl Into<i32> for GtfsTime {
     /// Returns the GtfsTime as a number of seconds since midnight
     fn into(self) -> i32 {
         (self.0 as i32) * 3600 + (self.1 as i32) * 60 + (self.2 as i32)
+    }
+}
+
+impl Into<u32> for GtfsTime {
+    /// Returns the GtfsTime as a number of seconds since midnight
+    fn into(self) -> u32 {
+        (self.0 as u32) * 3600 + (self.1 as u32) * 60 + (self.2 as u32)
     }
 }
 

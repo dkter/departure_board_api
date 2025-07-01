@@ -1,12 +1,67 @@
 mod error;
 mod formatter;
 
+use std::{collections::HashMap};
 use actix_web::{get, web, App, HttpServer};
+use anyhow::Result;
 use clorinde::{deadpool_postgres::{Config, CreatePoolError, Pool, Runtime}, queries::combined::get_next_deps_near_point, tokio_postgres::NoTls};
+use futures::{stream::FuturesUnordered, StreamExt};
+use gtfs::GtfsTime;
 use crate::formatter::{Formatter, FormattedData};
+use itertools::Itertools;
+use prost::Message;
 
 struct AppState {
+    cfg: HashMap<String, config::Agency>,
     pool: Pool,
+    req_client: reqwest::Client,
+}
+
+async fn get_agency_updates(
+    cfg: &HashMap<String, config::Agency>,
+    agency: &str,
+    req_client: &reqwest::Client
+) -> Result<gtfs_rt::FeedMessage> {
+    let url = &cfg.get(agency).expect("nonexistent agency passed to get_agency_updates").gtfs_rt_updates_url;
+    let resp = req_client.get(url)
+        .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36")
+        .send()
+        .await?;
+    let content = resp.bytes().await?;
+    let message = gtfs_rt::FeedMessage::decode(content)?;
+    Ok(message)
+}
+
+fn apply_updates_to_formatted_data(
+    updates: &HashMap<&String, gtfs_rt::FeedMessage>,
+    formatted_data: &mut Vec<FormattedData>,
+) {
+    for fd in formatted_data {
+        if let Some(update) = updates.get(&fd.agency) {
+            for entity in &update.entity {
+                // handle trip updates
+                if let Some(trip_update) = &entity.trip_update {
+                    if trip_update.trip.trip_id.as_ref().is_some_and(|trip_id| trip_id == &fd.trip_id) {
+                        // apply update
+                        for stop_time_update in &trip_update.stop_time_update {
+                            if stop_time_update.stop_id.as_ref().is_some_and(|stop_id| stop_id == &fd.stop_id) {
+                                let stop_time_event = stop_time_update.departure.as_ref().or(stop_time_update.arrival.as_ref());
+                                if let Some(stop_time_event) = stop_time_event {
+                                    if let Some(time) = stop_time_event.time {
+                                        let chrono_time = chrono::DateTime::from_timestamp(time, 0).unwrap()
+                                            .with_timezone(&fd.timezone);
+                                        let new_time = GtfsTime::from_chrono_time(chrono_time);
+                                        println!("dbg: adjusting time {:?} -> {:?} for trip {}", GtfsTime::from(fd.time), new_time, fd.trip_id);
+                                        fd.time = new_time.into();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[get("/departures/{lat}/{lon}/{limit}")]
@@ -14,12 +69,33 @@ async fn get_departures(path: web::Path<(f64, f64, u64)>, data: web::Data<AppSta
     let db_client = data.pool.get().await?;
     let (lat, lon, limit) = path.into_inner();
     let now = gtfs::GtfsTime::local_now();
+
     let result = get_next_deps_near_point().bind(&db_client, &lat, &lon, &(limit as i64), &now.into()).all().await?;
 
-    let formatted_data = result.iter().map(|r| {
+    // collect agencies to get updates from
+    let agencies = result.iter().map(|r| &r.agency).unique();
+    // map of {agency name: realtime updates for that agency}
+    let updates = agencies.map(async |a| (a, get_agency_updates(&data.cfg, a, &data.req_client).await))
+        .collect::<FuturesUnordered<_>>()
+        .filter_map(async |(agency_name, agency_updates)| {
+            // if there's an error, just log and don't include updates for that agency
+            match agency_updates {
+                Ok(agency_updates) => Some((agency_name, agency_updates)),
+                Err(e) => {
+                    println!("warning: could not retrieve updates for agency {} due to error: {}", agency_name, e);
+                    None
+                }
+            }
+        })
+        .collect::<HashMap<_, _>>()
+        .await;
+
+    let mut formatted_data = result.iter().map(|r| {
         let f = formatter::get_formatter_from_agency(&r.agency);
         f.format(r)
     }).collect::<Vec<_>>();
+
+    apply_updates_to_formatted_data(&updates, &mut formatted_data);
 
     Ok(web::Json(formatted_data))
 }
@@ -36,16 +112,20 @@ async fn create_pool() -> Result<Pool, CreatePoolError> {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let cfg = config::read_config_from_file()?;
     let pool = create_pool().await?;
 
-    Ok(HttpServer::new(move || {
-        App::new()
-            .app_data(web::Data::new(AppState {
-                pool: pool.clone(),
-            }))
-            .service(get_departures)
-    })
-    .bind(("127.0.0.1", 8080))?
-    .run()
-    .await?)
+    Ok(
+        HttpServer::new(move || {
+            App::new()
+                .app_data(web::Data::new(AppState {
+                    cfg: cfg.clone(),
+                    pool: pool.clone(),
+                    req_client: reqwest::Client::new(),
+                }))
+                .service(get_departures)
+        })
+        .bind(("127.0.0.1", 8080))?
+        .run()
+        .await?)
 }

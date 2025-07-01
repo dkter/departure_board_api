@@ -1,2 +1,3 @@
 [grt]
 gtfs_url = "https://www.regionofwaterloo.ca/opendatadownloads/GRT_GTFS.zip"
+gtfs_rt_updates_url = "http://webapps.regionofwaterloo.ca/api/grt-routes/api/tripupdates"

@@ -26,6 +26,8 @@ anyhow = "1.0.98"
 toml = "0.8.22"
 thiserror = "2.0.12"
 deadpool = "0.12.2"
+itertools = "0.14.0"
+chrono-tz = { version = "0.10.3", features = ["serde"] }
 
 [dependencies.rkyv]
 version = "0.7"
@@ -53,6 +55,8 @@ anyhow = "1.0.98"
 toml = "0.8.22"
 thiserror = "2.0.12"
 deadpool = "0.12.2"
+itertools = "0.14.0"
+chrono-tz = { version = "0.10.3", features = ["serde"] }
 
 [workspace.dependencies.rkyv]
 version = "0.7"

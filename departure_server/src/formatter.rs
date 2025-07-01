@@ -2,7 +2,12 @@ use clorinde::queries::combined::DepartureResult;
 
 #[derive(Debug, serde::Serialize)]
 pub struct FormattedData {
+    pub agency: String,
+    pub stop_id: String,
+    pub route_id: String,
+    pub trip_id: String,
     pub time: u32,
+    pub timezone: chrono_tz::Tz,
     pub stop_name: String,
     pub dest_name: String,
     pub route_short_name: String,
@@ -16,7 +21,12 @@ pub struct FormattedData {
 pub trait Formatter {
     fn format(&self, db_record: &DepartureResult) -> FormattedData {
         FormattedData {
+            agency: db_record.agency.clone(),
+            stop_id: db_record.stop_id.clone(),
+            route_id: db_record.route_id.clone(),
+            trip_id: db_record.trip_id.clone(),
             time: db_record.sortabletime as u32,
+            timezone: db_record.timezone.parse().expect("Unexpected value for timezone"),
             stop_name: Self::get_stop_name(db_record),
             dest_name: Self::get_dest_name(db_record),
             route_short_name: Self::get_route_short_name(db_record),

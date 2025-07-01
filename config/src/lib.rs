@@ -3,9 +3,10 @@ use anyhow::Result;
 
 const CONFIG_FILE: &str = "config.toml";
 
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 pub struct Agency {
     pub gtfs_url: String,
+    pub gtfs_rt_updates_url: String,
 }
 
 pub fn get_config(s: &str) -> Result<HashMap<String, Agency>> {
@@ -25,10 +26,14 @@ mod test {
         let result = super::get_config(r#"
             [grt]
             gtfs_url = "abc"
+            gtfs_rt_updates_url = "ABC"
 
             [ttc]
-            gtfs_url = "def""#).unwrap();
+            gtfs_url = "def"
+            gtfs_rt_updates_url = "DEF""#).unwrap();
         assert_eq!(result.get("grt").unwrap().gtfs_url, "abc");
+        assert_eq!(result.get("grt").unwrap().gtfs_rt_updates_url, "ABC");
         assert_eq!(result.get("ttc").unwrap().gtfs_url, "def");
+        assert_eq!(result.get("ttc").unwrap().gtfs_rt_updates_url, "DEF");
     }
 }
