@@ -28,6 +28,7 @@ thiserror = "2.0.12"
 deadpool = "0.12.2"
 itertools = "0.14.0"
 chrono-tz = { version = "0.10.3", features = ["serde"] }
+geo-types = "0.7.17"
 
 [dependencies.rkyv]
 version = "0.7"

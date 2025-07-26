@@ -33,17 +33,17 @@ impl From<u32> for GtfsTime {
     }
 }
 
-impl Into<i32> for GtfsTime {
+impl From<GtfsTime> for i32 {
     /// Returns the GtfsTime as a number of seconds since midnight
-    fn into(self) -> i32 {
-        (self.0 as i32) * 3600 + (self.1 as i32) * 60 + (self.2 as i32)
+    fn from(value: GtfsTime) -> i32 {
+        (value.0 as i32) * 3600 + (value.1 as i32) * 60 + (value.2 as i32)
     }
 }
 
-impl Into<u32> for GtfsTime {
+impl From<GtfsTime> for u32 {
     /// Returns the GtfsTime as a number of seconds since midnight
-    fn into(self) -> u32 {
-        (self.0 as u32) * 3600 + (self.1 as u32) * 60 + (self.2 as u32)
+    fn from(value: GtfsTime) -> u32 {
+        (value.0 as u32) * 3600 + (value.1 as u32) * 60 + (value.2 as u32)
     }
 }
 

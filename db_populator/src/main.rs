@@ -1,22 +1,8 @@
 use anyhow::Result;
-use clorinde::client::Params;
-use clorinde::queries::{
-    agencies::{get_agency_checksum, insert_agency, delete_agency},
-    stop_times::insert_stop_time,
-    trips::insert_trip,
-    stops::insert_stop,
-    routes::insert_route,
-};
+use clorinde::queries::agencies::{get_agency_checksum, insert_agency, delete_agency};
 use clorinde::tokio_postgres;
 use clorinde::deadpool_postgres::{Config, CreatePoolError, Pool, Runtime};
-use db_helpers::{
-    stop_time::stop_time_to_db_record,
-    trip::trip_to_db_record,
-    stop::stop_to_db_record,
-    route::route_to_db_record,
-};
-use futures::stream::FuturesUnordered;
-use futures::{StreamExt, TryStreamExt};
+use db_helpers::copy::write_to_table;
 
 async fn create_pool() -> Result<Pool, CreatePoolError> {
     let mut cfg = Config::new();
@@ -105,60 +91,28 @@ async fn main() -> Result<()> {
                 &mut transaction, &agency_name, &(zip_checksum as i64), &timezone
             ).await?;
 
-            let stop_times = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
-            let stop_times_task: FuturesUnordered<_> = stop_times.map(
-                |stop_time| {
-                    let params = stop_time_to_db_record(
-                        stop_time.expect("Attempting to insert invalid stop time into database"));
-                    {
-                        let transaction = &transaction;
-                        async move { insert_stop_time().params(transaction, &params).await }
-                    }
-                }
-            ).collect();
+            let mut stop_times_zip = zip.clone();
+            let stop_times = gtfs::read_gtfs_objects_from_zip(&mut stop_times_zip, &agency_name)?;
+            // Ignore/warn on all errors
+            let stop_times = stop_times.map(|res| res.expect("Attempting to insert invalid stop time into database"));
+            let stop_times_fut = write_to_table::<gtfs::StopTime>(stop_times, &transaction);
 
-            let trips = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
-            let trips_task: FuturesUnordered<_> = trips.map(
-                |trip| {
-                    let params = trip_to_db_record(
-                        trip.expect("Attempting to insert invalid trip into database"));
-                    {
-                        let transaction = &transaction;
-                        async move { insert_trip().params(transaction, &params).await }
-                    }
-                }
-            ).collect();
+            let mut trips_zip = zip.clone();
+            let trips = gtfs::read_gtfs_objects_from_zip(&mut trips_zip, &agency_name)?;
+            let trips = trips.map(|res| res.expect("Attempting to insert invalid trip into database"));
+            let trips_fut = write_to_table::<gtfs::Trip>(trips, &transaction);
 
-            let stops = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
-            let stops_task: FuturesUnordered<_> = stops.map(
-                |stop| {
-                    let params = stop_to_db_record(
-                        stop.expect("Attempting to insert invalid stop into database"));
-                    {
-                        let transaction = &transaction;
-                        async move { insert_stop().params(transaction, &params).await }
-                    }
-                }
-            ).collect();
+            let mut stops_zip = zip.clone();
+            let stops = gtfs::read_gtfs_objects_from_zip(&mut stops_zip, &agency_name)?;
+            let stops = stops.map(|res| res.expect("Attempting to insert invalid stop into database"));
+            let stops_fut = write_to_table::<gtfs::Stop>(stops, &transaction);
 
             let routes = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
-            let routes_task: FuturesUnordered<_> = routes.map(
-                |route| {
-                    let params = route_to_db_record(
-                        route.expect("Attempting to insert invalid route into database"));
-                    {
-                        let transaction = &transaction;
-                        async move { insert_route().params(transaction, &params).await }
-                    }
-                }
-            ).collect();
+            let routes = routes.map(|res| res.expect("Attempting to insert invalid route into database"));
+            let routes_fut = write_to_table::<gtfs::Route>(routes, &transaction);
 
-            let rows_affected: u64 = stop_times_task
-                .chain(trips_task)
-                .chain(stops_task)
-                .chain(routes_task)
-                .try_fold(0, |acc, x| async move { Ok(acc + x) })
-                .await?;
+            let results = futures::try_join!(stop_times_fut, trips_fut, stops_fut, routes_fut)?;
+            let rows_affected = results.0 + results.1 + results.2 + results.3;
 
             transaction.commit().await?;
 

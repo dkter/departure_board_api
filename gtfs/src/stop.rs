@@ -15,7 +15,7 @@ pub struct Stop {
     pub location_type: Option<String>,
     pub parent_station: Option<String>,
     pub stop_timezone: Option<String>,
-    pub wheelchair_boarding: Option<u32>,
+    pub wheelchair_boarding: Option<i32>,
     pub level_id: Option<String>,
     pub platform_code: Option<String>,
 }
