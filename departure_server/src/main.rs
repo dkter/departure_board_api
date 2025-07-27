@@ -186,6 +186,7 @@ async fn main() -> anyhow::Result<()> {
                     req_client: reqwest::Client::new(),
                 }))
                 .service(get_departures)
+                .service(get_departures_after_time)
         })
         .bind(("0.0.0.0", 8080))?
         .run()
