@@ -107,12 +107,51 @@ async fn main() -> Result<()> {
             let stops = stops.map(|res| res.expect("Attempting to insert invalid stop into database"));
             let stops_fut = write_to_table::<gtfs::Stop>(stops, &transaction);
 
-            let routes = gtfs::read_gtfs_objects_from_zip(&mut zip, &agency_name)?;
+            let mut routes_zip = zip.clone();
+            let routes = gtfs::read_gtfs_objects_from_zip(&mut routes_zip, &agency_name)?;
             let routes = routes.map(|res| res.expect("Attempting to insert invalid route into database"));
             let routes_fut = write_to_table::<gtfs::Route>(routes, &transaction);
 
-            let results = futures::try_join!(stop_times_fut, trips_fut, stops_fut, routes_fut)?;
-            let rows_affected = results.0 + results.1 + results.2 + results.3;
+            let mut calendar_zip = zip.clone();
+            let calendar = gtfs::read_gtfs_objects_from_zip(&mut calendar_zip, &agency_name);
+            let calendar_fut = async {
+                match calendar {
+                    Ok(calendar) => {
+                        let calendar = calendar.map(|res| res.expect("Attempting to insert invalid calendar into database"));
+                        write_to_table::<gtfs::Calendar>(calendar, &transaction).await
+                    },
+                    // Ignore file not found errors, since calendar is optional and calendar_dates may be used instead
+                    Err(e) => {
+                        if let Some(zip::result::ZipError::FileNotFound) = e.downcast_ref::<zip::result::ZipError>() {
+                            Ok(0)
+                        } else {
+                            Err(e)
+                        }
+                    },
+                }
+            };
+
+            let mut calendar_dates_zip = zip.clone();
+            let calendar_dates = gtfs::read_gtfs_objects_from_zip(&mut calendar_dates_zip, &agency_name);
+            let calendar_dates_fut = async {
+                match calendar_dates {
+                    Ok(calendar_dates) => {
+                        let calendar_dates = calendar_dates.map(|res| res.expect("Attempting to insert invalid calendar_dates into database"));
+                        write_to_table::<gtfs::CalendarDate>(calendar_dates, &transaction).await
+                    },
+                    // Ignore file not found errors, since calendar_dates is optional and calendar may be used instead
+                    Err(e) => {
+                        if let Some(zip::result::ZipError::FileNotFound) = e.downcast_ref::<zip::result::ZipError>() {
+                            Ok(0)
+                        } else {
+                            Err(e)
+                        }
+                    },
+                }
+            };
+
+            let results = futures::try_join!(stop_times_fut, trips_fut, stops_fut, routes_fut, calendar_fut, calendar_dates_fut)?;
+            let rows_affected = results.0 + results.1 + results.2 + results.3 + results.4 + results.5;
 
             transaction.commit().await?;
 

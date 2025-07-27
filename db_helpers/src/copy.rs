@@ -225,6 +225,76 @@ impl BinaryCopy for gtfs::Route {
     }
 }
 
+impl BinaryCopy for gtfs::Calendar {
+    fn get_col_types() -> &'static [Type] {
+        &[
+            Type::TEXT, // agency
+            Type::TEXT, // service_id
+            Type::BOOL, // monday
+            Type::BOOL, // tuesday
+            Type::BOOL, // wednesday
+            Type::BOOL, // thursday
+            Type::BOOL, // friday
+            Type::BOOL, // saturday
+            Type::BOOL, // sunday
+            Type::DATE, // start_date
+            Type::DATE, // end_date
+        ]
+    }
+
+    fn get_copy_command() -> &'static str {
+        "COPY Calendar FROM STDIN BINARY"
+    }
+
+    async fn write_row(&self, writer: Pin<&mut BinaryCopyInWriter>) -> Result<(), tokio_postgres::Error> {
+        let row: &[&'_ (dyn ToSql + Sync)] = &[
+            &self.agency,
+            &self.service_id,
+            &self.monday,
+            &self.tuesday,
+            &self.wednesday,
+            &self.thursday,
+            &self.friday,
+            &self.saturday,
+            &self.sunday,
+            &self.start_date,
+            &self.end_date,
+        ];
+
+        writer.write(row).await?;
+
+        Ok(())
+    }
+}
+
+impl BinaryCopy for gtfs::CalendarDate {
+    fn get_col_types() -> &'static [Type] {
+        &[
+            Type::TEXT, // agency
+            Type::TEXT, // service_id
+            Type::DATE, // date
+            Type::INT4, // exception_type
+        ]
+    }
+
+    fn get_copy_command() -> &'static str {
+        "COPY CalendarDates FROM STDIN BINARY"
+    }
+
+    async fn write_row(&self, writer: Pin<&mut BinaryCopyInWriter>) -> Result<(), tokio_postgres::Error> {
+        let row: &[&'_ (dyn ToSql + Sync)] = &[
+            &self.agency,
+            &self.service_id,
+            &self.date,
+            &self.exception_type,
+        ];
+
+        writer.write(row).await?;
+
+        Ok(())
+    }
+}
+
 pub async fn write_to_table<T: BinaryCopy>(it: impl Iterator<Item = T>, transaction: &Transaction<'_>) -> Result<u64> {
     let copy_in_sink = transaction.copy_in(T::get_copy_command()).await?;
     let col_types = T::get_col_types();

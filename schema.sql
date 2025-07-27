@@ -79,3 +79,24 @@ CREATE TABLE Routes (
     continuous_drop_off int,
     network_id text
 );
+
+CREATE TABLE Calendar (
+    Agency varchar(32) NOT NULL REFERENCES Agencies ON DELETE CASCADE,
+    service_id text NOT NULL PRIMARY KEY,
+    monday boolean NOT NULL,
+    tuesday boolean NOT NULL,
+    wednesday boolean NOT NULL,
+    thursday boolean NOT NULL,
+    friday boolean NOT NULL,
+    saturday boolean NOT NULL,
+    sunday boolean NOT NULL,
+    start_date date NOT NULL,
+    end_date date NOT NULL
+);
+
+CREATE TABLE CalendarDates (
+    Agency varchar(32) NOT NULL REFERENCES Agencies ON DELETE CASCADE,
+    service_id text NOT NULL,
+    date date NOT NULL,
+    exception_type int NOT NULL
+);

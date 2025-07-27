@@ -3,10 +3,10 @@
 --! get_next_deps_near_point : DepartureResult
 WITH next_deps_of_nearest_stops AS (
     WITH n_nearest_stops AS (
-        SELECT *
+        SELECT *, EXTRACT(dow FROM :date::date) dow
         FROM Stops
         ORDER BY stop_lat_lon <-> point (:lat, :lon)
-        LIMIT :num_stops
+        LIMIT :limit
     )
     SELECT
         *,
@@ -14,7 +14,20 @@ WITH next_deps_of_nearest_stops AS (
     FROM StopTimes
     JOIN n_nearest_stops USING (agency, stop_id)
     JOIN trips USING (agency, trip_id)
-    WHERE SortableTime >= :time AND SortableTime < :time + 7200
+    LEFT JOIN calendar USING (agency, service_id)
+    LEFT JOIN calendardates USING (agency, service_id)
+    WHERE SortableTime >= :time AND SortableTime < :time + 7200 AND (
+        date = :date OR (
+            (dow=0 AND sunday) OR
+            (dow=1 AND monday) OR
+            (dow=2 AND tuesday) OR
+            (dow=3 AND wednesday) OR
+            (dow=4 AND thursday) OR
+            (dow=5 AND friday) OR
+            (dow=6 AND saturday)
+        )
+    )
+    
 )
 SELECT
     agency, sortabletime, timezone, stop_id, stop_code, stop_name,

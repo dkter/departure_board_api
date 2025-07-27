@@ -7,6 +7,8 @@ pub enum Error {
     DbError(#[from] tokio_postgres::Error),
     #[error("Pool error")]
     PoolError(#[from] deadpool::managed::PoolError<tokio_postgres::Error>),
+    #[error("InvalidURLError")]
+    InvalidURLError(String),
 }
 
 impl actix_web::ResponseError for Error {
@@ -14,6 +16,7 @@ impl actix_web::ResponseError for Error {
         match &self {
             Self::DbError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Self::PoolError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Self::InvalidURLError(_) => StatusCode::BAD_REQUEST,
         }
     }
 

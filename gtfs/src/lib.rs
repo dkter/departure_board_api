@@ -5,11 +5,15 @@ pub mod stop;
 pub mod stop_time;
 pub mod trip;
 pub mod route;
+pub mod calendar;
+pub mod calendar_date;
 
 pub use agency::Agency;
 pub use stop::Stop;
 pub use stop_time::StopTime;
 pub use trip::Trip;
 pub use route::Route;
+pub use calendar::Calendar;
+pub use calendar_date::CalendarDate;
 pub use gtfs_time::GtfsTime;
 pub use gtfs_reader::read_gtfs_objects_from_zip;

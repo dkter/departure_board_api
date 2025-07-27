@@ -1,4 +1,4 @@
-use crate::{Agency, Stop, StopTime, Trip, Route};
+use crate::{Agency, Calendar, CalendarDate, Route, Stop, StopTime, Trip};
 use std::io::{Read, Seek};
 use anyhow::{Context, Result};
 
@@ -54,7 +54,27 @@ impl GtfsReadable for Agency {
 
     fn set_agency(&mut self, agency: String) {
         self.agency = agency;
-    }    
+    }
+}
+
+impl GtfsReadable for Calendar {
+    fn get_file_name() -> &'static str {
+        "calendar.txt"
+    }
+
+    fn set_agency(&mut self, agency: String) {
+        self.agency = agency;
+    }
+}
+
+impl GtfsReadable for CalendarDate {
+    fn get_file_name() -> &'static str {
+        "calendar_dates.txt"
+    }
+
+    fn set_agency(&mut self, agency: String) {
+        self.agency = agency;
+    }
 }
 
 pub fn read_gtfs_objects_from_zip<'a, T: GtfsReadable + 'a, R: Read + Seek>(

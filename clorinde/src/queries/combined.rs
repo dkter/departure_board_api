@@ -2,9 +2,10 @@
 
 #[derive(Clone, Copy, Debug)]
 pub struct GetNextDepsNearPointParams {
+    pub date: crate::types::time::Date,
     pub lat: f64,
     pub lon: f64,
-    pub num_stops: i64,
+    pub limit: i64,
     pub time: i32,
 }
 #[derive(Debug, Clone, PartialEq)]
@@ -157,7 +158,7 @@ where
 }
 pub fn get_next_deps_near_point() -> GetNextDepsNearPointStmt {
     GetNextDepsNearPointStmt(crate::client::async_::Stmt::new(
-        "WITH next_deps_of_nearest_stops AS ( WITH n_nearest_stops AS ( SELECT * FROM Stops ORDER BY stop_lat_lon <-> point ($1, $2) LIMIT $3 ) SELECT *, ROW_NUMBER() OVER (PARTITION BY (agency, route_id, direction_id) ORDER BY SortableTime ASC) nth_of_route FROM StopTimes JOIN n_nearest_stops USING (agency, stop_id) JOIN trips USING (agency, trip_id) WHERE SortableTime >= $4 AND SortableTime < $4 + 7200 ) SELECT agency, sortabletime, timezone, stop_id, stop_code, stop_name, stop_lat_lon[0] as stop_lat, stop_lat_lon[1] as stop_lon, route_id, route_short_name, route_long_name, route_color, route_text_color, route_type, trip_id, trip_headsign, direction_id FROM next_deps_of_nearest_stops JOIN routes USING (agency, route_id) JOIN agencies USING (agency) WHERE nth_of_route = 1",
+        "WITH next_deps_of_nearest_stops AS ( WITH n_nearest_stops AS ( SELECT *, EXTRACT(dow FROM $1::date) dow FROM Stops ORDER BY stop_lat_lon <-> point ($2, $3) LIMIT $4 ) SELECT *, ROW_NUMBER() OVER (PARTITION BY (agency, route_id, direction_id) ORDER BY SortableTime ASC) nth_of_route FROM StopTimes JOIN n_nearest_stops USING (agency, stop_id) JOIN trips USING (agency, trip_id) LEFT JOIN calendar USING (agency, service_id) LEFT JOIN calendardates USING (agency, service_id) WHERE SortableTime >= $5 AND SortableTime < $5 + 7200 AND ( date = $1 OR ( (dow=0 AND sunday) OR (dow=1 AND monday) OR (dow=2 AND tuesday) OR (dow=3 AND wednesday) OR (dow=4 AND thursday) OR (dow=5 AND friday) OR (dow=6 AND saturday) ) ) ) SELECT agency, sortabletime, timezone, stop_id, stop_code, stop_name, stop_lat_lon[0] as stop_lat, stop_lat_lon[1] as stop_lon, route_id, route_short_name, route_long_name, route_color, route_text_color, route_type, trip_id, trip_headsign, direction_id FROM next_deps_of_nearest_stops JOIN routes USING (agency, route_id) JOIN agencies USING (agency) WHERE nth_of_route = 1",
     ))
 }
 pub struct GetNextDepsNearPointStmt(crate::client::async_::Stmt);
@@ -165,14 +166,15 @@ impl GetNextDepsNearPointStmt {
     pub fn bind<'c, 'a, 's, C: GenericClient>(
         &'s mut self,
         client: &'c C,
+        date: &'a crate::types::time::Date,
         lat: &'a f64,
         lon: &'a f64,
-        num_stops: &'a i64,
+        limit: &'a i64,
         time: &'a i32,
-    ) -> DepartureResultQuery<'c, 'a, 's, C, DepartureResult, 4> {
+    ) -> DepartureResultQuery<'c, 'a, 's, C, DepartureResult, 5> {
         DepartureResultQuery {
             client,
-            params: [lat, lon, num_stops, time],
+            params: [date, lat, lon, limit, time],
             stmt: &mut self.0,
             extractor: |
                 row: &tokio_postgres::Row,
@@ -207,7 +209,7 @@ impl<'c, 'a, 's, C: GenericClient>
         'a,
         's,
         GetNextDepsNearPointParams,
-        DepartureResultQuery<'c, 'a, 's, C, DepartureResult, 4>,
+        DepartureResultQuery<'c, 'a, 's, C, DepartureResult, 5>,
         C,
     > for GetNextDepsNearPointStmt
 {
@@ -215,12 +217,13 @@ impl<'c, 'a, 's, C: GenericClient>
         &'s mut self,
         client: &'c C,
         params: &'a GetNextDepsNearPointParams,
-    ) -> DepartureResultQuery<'c, 'a, 's, C, DepartureResult, 4> {
+    ) -> DepartureResultQuery<'c, 'a, 's, C, DepartureResult, 5> {
         self.bind(
             client,
+            &params.date,
             &params.lat,
             &params.lon,
-            &params.num_stops,
+            &params.limit,
             &params.time,
         )
     }
