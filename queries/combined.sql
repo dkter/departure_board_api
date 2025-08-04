@@ -10,21 +10,36 @@ WITH next_deps_of_nearest_stops AS (
     )
     SELECT
         *,
-        ROW_NUMBER() OVER (PARTITION BY (agency, route_id, direction_id) ORDER BY SortableTime ASC) nth_of_route
+        ROW_NUMBER() OVER (PARTITION BY (agency, route_id, direction_id) ORDER BY stop_lat_lon <-> point (:lat, :lon)) nth_of_route
     FROM StopTimes
     JOIN n_nearest_stops USING (agency, stop_id)
     JOIN trips USING (agency, trip_id)
     LEFT JOIN calendar USING (agency, service_id)
     LEFT JOIN calendardates USING (agency, service_id)
-    WHERE SortableTime >= :time AND SortableTime < :time + 7200 AND (
-        date = :date OR (
-            (dow=0 AND sunday) OR
-            (dow=1 AND monday) OR
-            (dow=2 AND tuesday) OR
-            (dow=3 AND wednesday) OR
-            (dow=4 AND thursday) OR
-            (dow=5 AND friday) OR
-            (dow=6 AND saturday)
+    WHERE (
+        SortableTime >= :time AND SortableTime < :time + 7200 AND (
+            date = :date OR (
+                (dow=0 AND sunday) OR
+                (dow=1 AND monday) OR
+                (dow=2 AND tuesday) OR
+                (dow=3 AND wednesday) OR
+                (dow=4 AND thursday) OR
+                (dow=5 AND friday) OR
+                (dow=6 AND saturday)
+            )
+        )
+    ) OR (
+        -- it's tomorrow!
+        SortableTime >= 86400 + :time AND SortableTime < 86400 + :time + 7200 AND (
+            date = :date::date - interval '1 day' OR (
+                (dow=1 AND sunday) OR
+                (dow=2 AND monday) OR
+                (dow=3 AND tuesday) OR
+                (dow=4 AND wednesday) OR
+                (dow=5 AND thursday) OR
+                (dow=6 AND friday) OR
+                (dow=0 AND saturday)
+            )
         )
     )
     
