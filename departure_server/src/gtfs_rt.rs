@@ -1,0 +1,86 @@
+use std::collections::HashMap;
+use anyhow::Result;
+use prost::Message;
+use gtfs::GtfsTime;
+use crate::formatter::FormattedData;
+
+pub async fn get_agency_updates(
+    cfg: &HashMap<String, config::Agency>,
+    agency: &str,
+    req_client: &reqwest::Client
+) -> Result<gtfs_rt::FeedMessage> {
+    let url = &cfg.get(agency).expect("nonexistent agency passed to get_agency_updates").gtfs_rt_updates_url;
+    let resp = req_client.get(url)
+        .header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36")
+        .send()
+        .await?;
+    let content = resp.bytes().await?;
+    let message = gtfs_rt::FeedMessage::decode(content)?;
+    Ok(message)
+}
+
+fn get_updated_departure_time(
+    update: &gtfs_rt::trip_update::StopTimeUpdate,
+    timezone: &chrono_tz::Tz
+) -> Option<GtfsTime> {
+    let stop_time_event = update.departure.as_ref().or(update.arrival.as_ref());
+    if let Some(stop_time_event) = stop_time_event {
+        if let Some(time) = stop_time_event.time {
+            let chrono_time = chrono::DateTime::from_timestamp(time, 0).unwrap()
+                .with_timezone(timezone);
+            let new_time = GtfsTime::from_chrono_time(chrono_time);
+            return Some(new_time);
+        }
+    }
+    None
+}
+
+fn apply_trip_update_to_fd(
+    now: &gtfs::GtfsTime,
+    trip_update: &gtfs_rt::TripUpdate,
+    fd: &mut FormattedData,
+) {
+    if trip_update.trip.trip_id.as_ref().is_some_and(|trip_id| trip_id == &fd.trip_id) {
+        // If this trip update mentions our stop, update the departure time of that stop
+        for stop_time_update in &trip_update.stop_time_update {
+            if stop_time_update.stop_id.as_ref().is_some_and(|stop_id| stop_id == &fd.stop_id) {
+                if let Some(updated_time) = get_updated_departure_time(stop_time_update, &fd.timezone) {
+                    println!("dbg: adjusting time {:?} -> {:?} for trip {}",
+                            GtfsTime::from(fd.time), updated_time, fd.trip_id);
+                    fd.time = updated_time.into();
+                }
+            }
+        }
+    } else if trip_update.trip.route_id.as_ref().is_some_and(|route_id| route_id == &fd.route_id) {
+        // If this trip update has a departure after the current time but before the scheduled departure,
+        // replace the scheduled departure with that one
+        for stop_time_update in &trip_update.stop_time_update {
+            if stop_time_update.stop_id.as_ref().is_some_and(|stop_id| stop_id == &fd.stop_id) {
+                if let Some(updated_time) = get_updated_departure_time(stop_time_update, &fd.timezone) {
+                    if now < &updated_time && updated_time < fd.time.into() {
+                        println!("dbg: adjusting time {:?} -> {:?} for trip {}",
+                                GtfsTime::from(fd.time), updated_time, fd.trip_id);
+                        fd.time = updated_time.into();
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn apply_updates_to_formatted_data_list(
+    now: &gtfs::GtfsTime,
+    updates: &HashMap<&String, gtfs_rt::FeedMessage>,
+    formatted_data: &mut Vec<FormattedData>,
+) {
+    for fd in formatted_data {
+        if let Some(update) = updates.get(&fd.agency) {
+            for entity in &update.entity {
+                // handle trip updates
+                if let Some(trip_update) = &entity.trip_update {
+                    apply_trip_update_to_fd(now, trip_update, fd);
+                }
+            }
+        }
+    }
+}
