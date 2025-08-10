@@ -45,7 +45,7 @@ pub trait Formatter {
     fn get_dest_name(db_record: &DepartureResult) -> String {
         db_record.trip_headsign
             .clone()
-            .expect(&format!("Agency {} does not publish trip_headsign - find alternative", db_record.agency))
+            .unwrap_or("".to_string())
     }
 
     fn get_route_short_name(db_record: &DepartureResult) -> String {
