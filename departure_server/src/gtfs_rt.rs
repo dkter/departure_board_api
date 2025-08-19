@@ -35,41 +35,39 @@ fn get_updated_departure_time(
     None
 }
 
+fn time_updated_trip_reaches_stop(
+    trip_update: &gtfs_rt::TripUpdate,
+    stop_id: &str,
+    timezone: &chrono_tz::Tz,
+) -> Option<GtfsTime> {
+    for stop_time_update in &trip_update.stop_time_update {
+        if stop_time_update.stop_id.as_ref().is_some_and(|s| s == stop_id) {
+            return get_updated_departure_time(stop_time_update, timezone)
+        }
+    }
+    None
+}
+
 fn apply_trip_update_to_fd(
-    now: &gtfs::GtfsTime,
+    now: &GtfsTime,
     trip_update: &gtfs_rt::TripUpdate,
     fd: &mut FormattedData,
 ) {
-    if trip_update.trip.trip_id.as_ref().is_some_and(|trip_id| trip_id == &fd.trip_id) {
-        // If this trip update mentions our stop, update the departure time of that stop
-        for stop_time_update in &trip_update.stop_time_update {
-            if stop_time_update.stop_id.as_ref().is_some_and(|stop_id| stop_id == &fd.stop_id) {
-                if let Some(updated_time) = get_updated_departure_time(stop_time_update, &fd.timezone) {
-                    println!("dbg: adjusting time {:?} -> {:?} for trip {}",
-                            GtfsTime::from(fd.time), updated_time, fd.trip_id);
-                    fd.time = updated_time.into();
-                }
-            }
-        }
-    } else if trip_update.trip.route_id.as_ref().is_some_and(|route_id| route_id == &fd.route_id) {
+    if trip_update.trip.route_id.as_ref().is_some_and(|route_id| route_id == &fd.route_id) {
         // If this trip update has a departure after the current time but before the scheduled departure,
         // replace the scheduled departure with that one
-        for stop_time_update in &trip_update.stop_time_update {
-            if stop_time_update.stop_id.as_ref().is_some_and(|stop_id| stop_id == &fd.stop_id) {
-                if let Some(updated_time) = get_updated_departure_time(stop_time_update, &fd.timezone) {
-                    if now < &updated_time && updated_time < fd.time.into() {
-                        println!("dbg: adjusting time {:?} -> {:?} for trip {}",
-                                GtfsTime::from(fd.time), updated_time, fd.trip_id);
-                        fd.time = updated_time.into();
-                    }
-                }
+        if let Some(updated_time) = time_updated_trip_reaches_stop(trip_update, &fd.stop_id, &fd.timezone) {
+            if now < &updated_time && updated_time < fd.time.into() {
+                println!("dbg: adjusting time {:?} -> {:?} for trip {}",
+                        GtfsTime::from(fd.time), updated_time, fd.trip_id);
+                fd.time = updated_time.into();
             }
         }
     }
 }
 
 pub fn apply_updates_to_formatted_data_list(
-    now: &gtfs::GtfsTime,
+    now: &GtfsTime,
     updates: &HashMap<&String, gtfs_rt::FeedMessage>,
     formatted_data: &mut Vec<FormattedData>,
 ) {
