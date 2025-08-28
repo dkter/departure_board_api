@@ -53,4 +53,5 @@ SELECT
 FROM next_deps_of_nearest_stops
 JOIN routes USING (agency, route_id)
 JOIN agencies USING (agency)
-WHERE nth_of_route = 1;
+WHERE nth_of_route = 1
+ORDER BY stop_lat_lon <-> point (:lat, :lon);
