@@ -84,7 +84,33 @@ pub trait Formatter {
 }
 
 struct Grt;
-impl Formatter for Grt {}
+impl Formatter for Grt {
+    fn get_bg_colour(db_record: &DepartureResult) -> String {
+        match &db_record.route_color {
+            Some(colour) => colour.clone(),
+            None => match db_record.route_short_name.as_deref().unwrap_or("") {
+                // iXpress is green
+                "201" | "202" | "203" | "204" | "205" | "206" | "207" | "208" => "55AA00".to_string(),
+                // ION is blue
+                "301" | "302" | "303" | "304" => "00AAFF".to_string(),
+                // ION replacement is red
+                "301R" => "FF0000".to_string(),
+                // otherwise... grey?
+                _ => "555555".to_string(),
+            }
+        }
+    }
+
+    fn get_vehicle_type(db_record: &DepartureResult) -> u32 {
+        match db_record.route_short_name.as_deref().unwrap_or("") {
+            // GRT's GTFS marks this as heavy rail (2), I'm switching it to 0 (tram)
+            "301" => 0,
+            _ => db_record.route_type
+                .expect(&format!("Agency {} does not publish route_type - find alternative", db_record.agency))
+                as u32,
+        }
+    }
+}
 
 pub fn get_formatter_from_agency(agency: &str) -> impl Formatter {
     match agency {
