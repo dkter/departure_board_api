@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use clorinde::queries::combined::DepartureResult;
-use convert_case::{Case, Casing};
+use titlecase::Titlecase;
 
 #[derive(Debug, serde::Serialize)]
 pub struct FormattedData {
@@ -124,7 +124,7 @@ impl Formatter for Ttc {
         let route = split.next().unwrap();
         let towards = split.next().expect("headsign did not have 'towards'");
         let direction = route.split(" - ").next().unwrap();
-        format!("{} to {}", direction.to_case(Case::Title), towards.to_case(Case::Title))
+        format!("{} to {}", direction.titlecase(), towards.to_lowercase().titlecase())
     }
 
     fn get_stop_name(&self, db_record: &DepartureResult) -> String {
@@ -135,6 +135,10 @@ impl Formatter for Ttc {
             Cow::Borrowed(_) => stop_name,
             Cow::Owned(s) => s,
         }
+    }
+
+    fn get_route_long_name(&self, db_record: &DepartureResult) -> String {
+        db_record.route_long_name.as_ref().unwrap().titlecase()
     }
 }
 
