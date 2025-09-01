@@ -1,4 +1,7 @@
+use std::borrow::Cow;
+
 use clorinde::queries::combined::DepartureResult;
+use convert_case::{Case, Casing};
 
 #[derive(Debug, serde::Serialize)]
 pub struct FormattedData {
@@ -27,65 +30,65 @@ pub trait Formatter {
             trip_id: db_record.trip_id.clone(),
             time: db_record.sortabletime as u32,
             timezone: db_record.timezone.parse().expect("Unexpected value for timezone"),
-            stop_name: Self::get_stop_name(db_record),
-            dest_name: Self::get_dest_name(db_record),
-            route_short_name: Self::get_route_short_name(db_record),
-            route_long_name: Self::get_route_long_name(db_record),
-            vehicle_type: Self::get_vehicle_type(db_record),
-            fg_colour: Self::get_fg_colour(db_record),
-            bg_colour: Self::get_bg_colour(db_record),
-            shape: Self::get_shape(db_record),
+            stop_name: self.get_stop_name(db_record),
+            dest_name: self.get_dest_name(db_record),
+            route_short_name: self.get_route_short_name(db_record),
+            route_long_name: self.get_route_long_name(db_record),
+            vehicle_type: self.get_vehicle_type(db_record),
+            fg_colour: self.get_fg_colour(db_record),
+            bg_colour: self.get_bg_colour(db_record),
+            shape: self.get_shape(db_record),
         }
     }
 
-    fn get_stop_name(db_record: &DepartureResult) -> String {
+    fn get_stop_name(&self, db_record: &DepartureResult) -> String {
         db_record.stop_name.clone()
     }
 
-    fn get_dest_name(db_record: &DepartureResult) -> String {
+    fn get_dest_name(&self, db_record: &DepartureResult) -> String {
         db_record.trip_headsign
             .clone()
             .unwrap_or("".to_string())
     }
 
-    fn get_route_short_name(db_record: &DepartureResult) -> String {
+    fn get_route_short_name(&self, db_record: &DepartureResult) -> String {
         db_record.route_short_name
             .clone()
             .unwrap_or(db_record.route_id.clone())
     }
 
-    fn get_route_long_name(db_record: &DepartureResult) -> String {
+    fn get_route_long_name(&self, db_record: &DepartureResult) -> String {
         db_record.route_long_name
             .clone()
             .expect(&format!("Agency {} does not publish route_long_name - find alternative", db_record.agency))
     }
 
-    fn get_vehicle_type(db_record: &DepartureResult) -> u32 {
+    fn get_vehicle_type(&self, db_record: &DepartureResult) -> u32 {
         db_record.route_type
             .expect(&format!("Agency {} does not publish route_type - find alternative", db_record.agency))
             as u32
     }
 
-    fn get_fg_colour(db_record: &DepartureResult) -> String {
+    fn get_fg_colour(&self, db_record: &DepartureResult) -> String {
         db_record.route_text_color
             .clone()
             .unwrap_or_else(|| "ffffff".to_string())
     }
 
-    fn get_bg_colour(db_record: &DepartureResult) -> String {
+    fn get_bg_colour(&self, db_record: &DepartureResult) -> String {
         db_record.route_color
             .clone()
             .unwrap_or_else(|| "000000".to_string())
     }
 
-    fn get_shape(_db_record: &DepartureResult) -> u32 {
+    fn get_shape(&self, _db_record: &DepartureResult) -> u32 {
         0
     }
 }
 
 struct Grt;
 impl Formatter for Grt {
-    fn get_bg_colour(db_record: &DepartureResult) -> String {
+    fn get_bg_colour(&self, db_record: &DepartureResult) -> String {
         match &db_record.route_color {
             Some(colour) => colour.clone(),
             None => match db_record.route_short_name.as_deref().unwrap_or("") {
@@ -101,7 +104,7 @@ impl Formatter for Grt {
         }
     }
 
-    fn get_vehicle_type(db_record: &DepartureResult) -> u32 {
+    fn get_vehicle_type(&self, db_record: &DepartureResult) -> u32 {
         match db_record.route_short_name.as_deref().unwrap_or("") {
             // GRT's GTFS marks this as heavy rail (2), I'm switching it to 0 (tram)
             "301" => 0,
@@ -112,9 +115,33 @@ impl Formatter for Grt {
     }
 }
 
-pub fn get_formatter_from_agency(agency: &str) -> impl Formatter {
+struct Ttc;
+impl Formatter for Ttc {
+    fn get_dest_name(&self, db_record: &DepartureResult) -> String {
+        // in the format "EAST - 506 CARLTON towards MAIN STREET STATION"
+        let headsign = db_record.trip_headsign.clone().unwrap_or_else(|| return "".to_string());
+        let mut split = headsign.split(" towards ");
+        let route = split.next().unwrap();
+        let towards = split.next().expect("headsign did not have 'towards'");
+        let direction = route.split(" - ").next().unwrap();
+        format!("{} to {}", direction.to_case(Case::Title), towards.to_case(Case::Title))
+    }
+
+    fn get_stop_name(&self, db_record: &DepartureResult) -> String {
+        // shorten from "Gerrard St East at Carlaw Ave" to "Gerrard / Carlaw"
+        let street_suffix = regex::Regex::new(" (St|Av|Ave|Dr|Rd|Blvd)( East| West)? ").unwrap();
+        let stop_name = db_record.stop_name.replace(" at ", " / ");
+        match street_suffix.replace_all(&stop_name, " ") {
+            Cow::Borrowed(_) => stop_name,
+            Cow::Owned(s) => s,
+        }
+    }
+}
+
+pub fn get_formatter_from_agency(agency: &str) -> Box<dyn Formatter> {
     match agency {
-        "grt" => Grt,
+        "grt" => Box::new(Grt),
+        "ttc" => Box::new(Ttc),
         _ => panic!("Formatter does not exist for agency {}", agency),
     }
 }

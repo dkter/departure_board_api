@@ -8,7 +8,7 @@ use anyhow::Result;
 use clorinde::{deadpool_postgres::{Config, CreatePoolError, Pool, Runtime}, queries::combined::get_next_deps_near_point, tokio_postgres::NoTls};
 use futures::{stream::FuturesUnordered, StreamExt};
 use itertools::Itertools;
-use crate::formatter::{Formatter, FormattedData};
+use crate::formatter::FormattedData;
 
 struct AppState {
     cfg: HashMap<String, config::Agency>,

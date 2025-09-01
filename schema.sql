@@ -33,19 +33,20 @@ CREATE TABLE Trips (
     Agency varchar(32) NOT NULL REFERENCES Agencies ON DELETE CASCADE,
     route_id text NOT NULL,
     service_id text NOT NULL,
-    trip_id text NOT NULL PRIMARY KEY,
+    trip_id text NOT NULL,
     trip_headsign text,
     trip_short_name text,
     direction_id int,
     block_id text,
     shape_id text,
     wheelchair_accessible int,
-    bikes_allowed int
+    bikes_allowed int,
+    PRIMARY KEY(Agency, trip_id)
 );
 
 CREATE TABLE Stops (
     Agency varchar(32) NOT NULL REFERENCES Agencies ON DELETE CASCADE,
-    stop_id text NOT NULL PRIMARY KEY,
+    stop_id text NOT NULL,
     stop_code text,
     stop_name text NOT NULL,
     tts_stop_name text,
@@ -58,14 +59,15 @@ CREATE TABLE Stops (
     stop_timezone text,
     wheelchair_boarding int,
     level_id text,
-    platform_code text
+    platform_code text,
+    PRIMARY KEY(Agency, stop_id)
 );
 
 CREATE INDEX StopPointsIndex ON Stops USING SPGIST (stop_lat_lon);
 
 CREATE TABLE Routes (
     Agency varchar(32) NOT NULL REFERENCES Agencies ON DELETE CASCADE,
-    route_id text NOT NULL PRIMARY KEY,
+    route_id text NOT NULL,
     agency_id text,
     route_short_name text,
     route_long_name text,
@@ -77,12 +79,13 @@ CREATE TABLE Routes (
     route_sort_order int,
     continuous_pickup int,
     continuous_drop_off int,
-    network_id text
+    network_id text,
+    PRIMARY KEY(Agency, route_id)
 );
 
 CREATE TABLE Calendar (
     Agency varchar(32) NOT NULL REFERENCES Agencies ON DELETE CASCADE,
-    service_id text NOT NULL PRIMARY KEY,
+    service_id text NOT NULL,
     monday boolean NOT NULL,
     tuesday boolean NOT NULL,
     wednesday boolean NOT NULL,
@@ -91,7 +94,8 @@ CREATE TABLE Calendar (
     saturday boolean NOT NULL,
     sunday boolean NOT NULL,
     start_date date NOT NULL,
-    end_date date NOT NULL
+    end_date date NOT NULL,
+    PRIMARY KEY(Agency, service_id)
 );
 
 CREATE TABLE CalendarDates (
