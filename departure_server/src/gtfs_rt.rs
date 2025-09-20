@@ -48,7 +48,36 @@ fn time_updated_trip_reaches_stop(
     None
 }
 
-fn apply_trip_update_to_fd(
+/// Within a trip update, finds a stop time update with the given stop_id if it exists,
+/// otherwise return null.
+fn find_stop_time_update_matching_stop_id<'a>(
+    trip_update: &'a gtfs_rt::TripUpdate,
+    stop_id: &str,
+) -> Option<&'a gtfs_rt::trip_update::StopTimeUpdate> {
+    trip_update.stop_time_update
+        .iter()
+        .find(|stu| stu.stop_id.as_ref().is_some_and(|s| s == stop_id))
+}
+
+fn apply_trip_update_to_fd_matching_trip_id(
+    now: &GtfsTime,
+    trip_update: &gtfs_rt::TripUpdate,
+    fd: &mut FormattedData,
+) {
+    if trip_update.trip.trip_id.as_ref().is_some_and(|trip_id| trip_id == &fd.trip_id) {
+        let dep_time = find_stop_time_update_matching_stop_id(&trip_update, &fd.stop_id)
+            .and_then(|stu| get_updated_departure_time(stu, &fd.timezone));
+        if let Some(updated_time) = dep_time {
+            if now < &updated_time && updated_time < fd.time.into() {
+                println!("dbg: adjusting time {:?} -> {:?} for trip {}",
+                        GtfsTime::from(fd.time), updated_time, fd.trip_id);
+                fd.time = updated_time.into();
+            }
+        }
+    }
+}
+
+fn apply_trip_update_to_fd_matching_route_id(
     now: &GtfsTime,
     trip_update: &gtfs_rt::TripUpdate,
     fd: &mut FormattedData,
@@ -76,7 +105,7 @@ pub fn apply_updates_to_formatted_data_list(
             for entity in &update.entity {
                 // handle trip updates
                 if let Some(trip_update) = &entity.trip_update {
-                    apply_trip_update_to_fd(now, trip_update, fd);
+                    apply_trip_update_to_fd_matching_trip_id(now, trip_update, fd);
                 }
             }
         }
