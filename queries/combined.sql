@@ -10,7 +10,7 @@ WITH next_deps_of_nearest_stops AS (
     )
     SELECT
         *,
-        ROW_NUMBER() OVER (PARTITION BY (agency, route_id, direction_id) ORDER BY stop_lat_lon <-> point (:lat, :lon)) nth_of_route
+        ROW_NUMBER() OVER (PARTITION BY (agency, route_id, direction_id) ORDER BY (stop_lat_lon <-> point (:lat, :lon)), SortableTime) nth_of_route
     FROM StopTimes
     JOIN n_nearest_stops USING (agency, stop_id)
     JOIN trips USING (agency, trip_id)
