@@ -37,7 +37,7 @@ pub struct InsertStopParams<
 pub struct GetNNearestStopsParams {
     pub lat: f64,
     pub lon: f64,
-    pub limit: i64,
+    pub radius: f64,
 }
 #[derive(Debug, Clone, PartialEq)]
 pub struct Stop {
@@ -309,7 +309,7 @@ impl<
 }
 pub fn get_n_nearest_stops() -> GetNNearestStopsStmt {
     GetNNearestStopsStmt(crate::client::async_::Stmt::new(
-        "SELECT Agency, stop_id, stop_code, stop_name, tts_stop_name, stop_desc, stop_lat_lon[0] AS stop_lat, stop_lat_lon[1] AS stop_lon, zone_id, stop_url, location_type, parent_station, stop_timezone, wheelchair_boarding, level_id, platform_code FROM Stops ORDER BY stop_lat_lon <-> point ($1, $2) LIMIT $3",
+        "SELECT Agency, stop_id, stop_code, stop_name, tts_stop_name, stop_desc, stop_lat_lon[0] AS stop_lat, stop_lat_lon[1] AS stop_lon, zone_id, stop_url, location_type, parent_station, stop_timezone, wheelchair_boarding, level_id, platform_code FROM Stops WHERE stop_lat_lon <@ circle (point ($1, $2), $3) ORDER BY stop_lat_lon <-> point ($1, $2)",
     ))
 }
 pub struct GetNNearestStopsStmt(crate::client::async_::Stmt);
@@ -319,11 +319,11 @@ impl GetNNearestStopsStmt {
         client: &'c C,
         lat: &'a f64,
         lon: &'a f64,
-        limit: &'a i64,
+        radius: &'a f64,
     ) -> StopQuery<'c, 'a, 's, C, Stop, 3> {
         StopQuery {
             client,
-            params: [lat, lon, limit],
+            params: [lat, lon, radius],
             stmt: &mut self.0,
             extractor: |row: &tokio_postgres::Row| -> Result<StopBorrowed, tokio_postgres::Error> {
                 Ok(StopBorrowed {
@@ -364,7 +364,7 @@ impl<'c, 'a, 's, C: GenericClient>
         client: &'c C,
         params: &'a GetNNearestStopsParams,
     ) -> StopQuery<'c, 'a, 's, C, Stop, 3> {
-        self.bind(client, &params.lat, &params.lon, &params.limit)
+        self.bind(client, &params.lat, &params.lon, &params.radius)
     }
 }
 pub fn delete_index() -> DeleteIndexStmt {
@@ -384,7 +384,7 @@ impl DeleteIndexStmt {
 }
 pub fn create_index() -> CreateIndexStmt {
     CreateIndexStmt(crate::client::async_::Stmt::new(
-        "CREATE INDEX StopPointsIndex ON Stops USING SPGIST (stop_lat_lon)",
+        "CREATE INDEX StopPointsIndex ON Stops USING SPGIST (stop_lat_lon kd_point_ops)",
     ))
 }
 pub struct CreateIndexStmt(crate::client::async_::Stmt);
