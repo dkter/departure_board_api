@@ -119,12 +119,25 @@ struct Ttc;
 impl Formatter for Ttc {
     fn get_dest_name(&self, db_record: &DepartureResult) -> String {
         // in the format "EAST - 506 CARLTON towards MAIN STREET STATION"
-        let headsign = db_record.trip_headsign.clone().unwrap_or_else(|| return "".to_string());
-        let mut split = headsign.split(" towards ");
-        let route = split.next().unwrap();
-        let towards = split.next().expect("headsign did not have 'towards'");
-        let direction = route.split(" - ").next().unwrap();
-        format!("{} to {}", direction.titlecase(), towards.to_lowercase().titlecase())
+        let headsign = db_record
+            .trip_headsign
+            .clone()
+            .unwrap_or_else(|| return "".to_string());
+        let (route, towards, direction) = {
+            let mut split = headsign.split(" towards ");
+            let mut split2 = headsign.split(" Towards "); // sometimes they do this by mistake
+            let (route, towards) = split
+                .next()
+                .zip(split.next())
+                .unwrap_or(split2.next().zip(split2.next()).unwrap_or((&headsign, "")));
+            let direction = route.split(" - ").next().unwrap_or("");
+            (route, towards, direction)
+        };
+        format!(
+            "{} to {}",
+            direction.titlecase(),
+            towards.to_lowercase().titlecase()
+        )
     }
 
     fn get_stop_name(&self, db_record: &DepartureResult) -> String {
