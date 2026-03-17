@@ -155,10 +155,14 @@ impl Formatter for Ttc {
     }
 }
 
+struct Burlington;
+impl Formatter for Burlington {}
+
 pub fn get_formatter_from_agency(agency: &str) -> Box<dyn Formatter> {
     match agency {
         "grt" => Box::new(Grt),
         "ttc" => Box::new(Ttc),
+        "burlington" => Box::new(Burlington),
         _ => panic!("Formatter does not exist for agency {}", agency),
     }
 }
