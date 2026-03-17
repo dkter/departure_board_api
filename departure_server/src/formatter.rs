@@ -29,7 +29,10 @@ pub trait Formatter {
             route_id: db_record.route_id.clone(),
             trip_id: db_record.trip_id.clone(),
             time: db_record.sortabletime as u32,
-            timezone: db_record.timezone.parse().expect("Unexpected value for timezone"),
+            timezone: db_record
+                .timezone
+                .parse()
+                .expect("Unexpected value for timezone"),
             stop_name: self.get_stop_name(db_record),
             dest_name: self.get_dest_name(db_record),
             route_short_name: self.get_route_short_name(db_record),
@@ -46,37 +49,40 @@ pub trait Formatter {
     }
 
     fn get_dest_name(&self, db_record: &DepartureResult) -> String {
-        db_record.trip_headsign
-            .clone()
-            .unwrap_or("".to_string())
+        db_record.trip_headsign.clone().unwrap_or("".to_string())
     }
 
     fn get_route_short_name(&self, db_record: &DepartureResult) -> String {
-        db_record.route_short_name
+        db_record
+            .route_short_name
             .clone()
             .unwrap_or(db_record.route_id.clone())
     }
 
     fn get_route_long_name(&self, db_record: &DepartureResult) -> String {
-        db_record.route_long_name
-            .clone()
-            .expect(&format!("Agency {} does not publish route_long_name - find alternative", db_record.agency))
+        db_record.route_long_name.clone().expect(&format!(
+            "Agency {} does not publish route_long_name - find alternative",
+            db_record.agency
+        ))
     }
 
     fn get_vehicle_type(&self, db_record: &DepartureResult) -> u32 {
-        db_record.route_type
-            .expect(&format!("Agency {} does not publish route_type - find alternative", db_record.agency))
-            as u32
+        db_record.route_type.expect(&format!(
+            "Agency {} does not publish route_type - find alternative",
+            db_record.agency
+        )) as u32
     }
 
     fn get_fg_colour(&self, db_record: &DepartureResult) -> String {
-        db_record.route_text_color
+        db_record
+            .route_text_color
             .clone()
             .unwrap_or_else(|| "ffffff".to_string())
     }
 
     fn get_bg_colour(&self, db_record: &DepartureResult) -> String {
-        db_record.route_color
+        db_record
+            .route_color
             .clone()
             .unwrap_or_else(|| "000000".to_string())
     }
@@ -93,14 +99,16 @@ impl Formatter for Grt {
             Some(colour) => colour.clone(),
             None => match db_record.route_short_name.as_deref().unwrap_or("") {
                 // iXpress is green
-                "201" | "202" | "203" | "204" | "205" | "206" | "207" | "208" => "55AA00".to_string(),
+                "201" | "202" | "203" | "204" | "205" | "206" | "207" | "208" => {
+                    "55AA00".to_string()
+                }
                 // ION is blue
                 "301" | "302" | "303" | "304" => "00AAFF".to_string(),
                 // ION replacement is red
                 "301R" => "FF0000".to_string(),
                 // otherwise... grey?
                 _ => "555555".to_string(),
-            }
+            },
         }
     }
 
@@ -108,9 +116,10 @@ impl Formatter for Grt {
         match db_record.route_short_name.as_deref().unwrap_or("") {
             // GRT's GTFS marks this as heavy rail (2), I'm switching it to 0 (tram)
             "301" => 0,
-            _ => db_record.route_type
-                .expect(&format!("Agency {} does not publish route_type - find alternative", db_record.agency))
-                as u32,
+            _ => db_record.route_type.expect(&format!(
+                "Agency {} does not publish route_type - find alternative",
+                db_record.agency
+            )) as u32,
         }
     }
 }
@@ -156,7 +165,23 @@ impl Formatter for Ttc {
 }
 
 struct Burlington;
-impl Formatter for Burlington {}
+impl Formatter for Burlington {
+    fn get_stop_name(&self, db_record: &DepartureResult) -> String {
+        // shorten from "NEW AT BURLOAK" to "New / Burloak"
+        db_record.stop_name.replace(" AT ", " / ").titlecase()
+    }
+
+    fn get_route_long_name(&self, db_record: &DepartureResult) -> String {
+        db_record
+            .route_long_name
+            .clone()
+            .expect(&format!(
+                "route_long_name not found on Burlington route {:?}",
+                db_record.route_short_name
+            ))
+            .titlecase()
+    }
+}
 
 pub fn get_formatter_from_agency(agency: &str) -> Box<dyn Formatter> {
     match agency {
