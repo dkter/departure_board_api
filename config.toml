@@ -9,3 +9,7 @@ gtfs_rt_updates_url = "https://bustime.ttc.ca/gtfsrt/trips"
 [burlington]
 gtfs_url = "https://opendata.burlington.ca/gtfs-rt/GTFS_Data.zip"
 gtfs_rt_updates_url = "https://opendata.burlington.ca/gtfs-rt/GTFS_TripUpdates.pb"
+
+[mbta]
+gtfs_url = "https://cdn.mbta.com/MBTA_GTFS.zip"
+gtfs_rt_updates_url = "https://cdn.mbta.com/realtime/TripUpdates.pb"

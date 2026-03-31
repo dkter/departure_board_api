@@ -183,11 +183,15 @@ impl Formatter for Burlington {
     }
 }
 
+struct Mbta;
+impl Formatter for Mbta {}
+
 pub fn get_formatter_from_agency(agency: &str) -> Box<dyn Formatter> {
     match agency {
         "grt" => Box::new(Grt),
         "ttc" => Box::new(Ttc),
         "burlington" => Box::new(Burlington),
+        "mbta" => Box::new(Mbta),
         _ => panic!("Formatter does not exist for agency {}", agency),
     }
 }
