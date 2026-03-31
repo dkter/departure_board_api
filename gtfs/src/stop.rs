@@ -1,5 +1,13 @@
 /// GTFS Stop struct that supports deserializing from stops.txt via serde and csv.
-#[derive(Debug, serde::Serialize, serde::Deserialize, rkyv::Archive, rkyv::Deserialize, rkyv::Serialize, PartialEq)]
+#[derive(
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+    rkyv::Archive,
+    rkyv::Deserialize,
+    rkyv::Serialize,
+    PartialEq,
+)]
 pub struct Stop {
     #[serde(skip_deserializing)]
     pub agency: String,
@@ -8,11 +16,13 @@ pub struct Stop {
     pub stop_name: String,
     pub tts_stop_name: Option<String>,
     pub stop_desc: Option<String>,
-    pub stop_lat: f64,
-    pub stop_lon: f64,
+    // According to GTFS spec, these are optional, but we will later filter to `location_type=0`
+    // before inserting into the db, and in that case stop_lat and stop_lon are required.
+    pub stop_lat: Option<f64>,
+    pub stop_lon: Option<f64>,
     pub zone_id: Option<String>,
     pub stop_url: Option<String>,
-    pub location_type: Option<String>,
+    pub location_type: Option<i32>,
     pub parent_station: Option<String>,
     pub stop_timezone: Option<String>,
     pub wheelchair_boarding: Option<i32>,

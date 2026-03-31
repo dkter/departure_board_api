@@ -54,7 +54,7 @@ CREATE TABLE Stops (
     stop_lat_lon point NOT NULL,
     zone_id text,
     stop_url text,
-    location_type text,
+    location_type int,
     parent_station text,
     stop_timezone text,
     wheelchair_boarding int,

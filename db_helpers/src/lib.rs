@@ -1,5 +1,2 @@
-pub mod stop_time;
-pub mod trip;
-pub mod stop;
-pub mod route;
 pub mod copy;
+pub mod stop_time;

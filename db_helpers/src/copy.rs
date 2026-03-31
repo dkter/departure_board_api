@@ -1,13 +1,16 @@
 /**
  * Utilities for using postgres' COPY (along with tokio-postgres copy_in)
  */
-
+use anyhow::Result;
+use clorinde::deadpool_postgres::Transaction;
+use futures::pin_mut;
 use std::convert::From;
 use std::pin::Pin;
-use tokio_postgres::{self, binary_copy::BinaryCopyInWriter, types::{ToSql, Type}};
-use clorinde::deadpool_postgres::Transaction;
-use anyhow::Result;
-use futures::pin_mut;
+use tokio_postgres::{
+    self,
+    binary_copy::BinaryCopyInWriter,
+    types::{ToSql, Type},
+};
 
 pub trait BinaryCopy {
     /// Returns a static list of database column types, as defined by tokio_postgres.
@@ -16,32 +19,35 @@ pub trait BinaryCopy {
     fn get_copy_command() -> &'static str;
     /// Write the data type as a row to `writer`.
     #[allow(async_fn_in_trait)]
-    async fn write_row(&self, writer: Pin<&mut BinaryCopyInWriter>) -> Result<(), tokio_postgres::Error>;
+    async fn write_row(
+        &self,
+        writer: Pin<&mut BinaryCopyInWriter>,
+    ) -> Result<(), tokio_postgres::Error>;
 }
 
 impl BinaryCopy for gtfs::StopTime {
     fn get_col_types() -> &'static [Type] {
         &[
-            Type::TEXT, // agency
-            Type::INT4, // SortableTime
-            Type::TEXT, // trip_id
-            Type::INT4, // arrival_time
-            Type::INT4, // departure_time
-            Type::TEXT, // stop_id
-            Type::TEXT, // location_group_id
-            Type::TEXT, // location_id
-            Type::INT4, // stop_sequence
-            Type::TEXT, // stop_headsign
-            Type::INT4, // start_pickup_drop_off_window
-            Type::INT4, // end_pickup_drop_off_window
-            Type::INT4, // pickup_type
-            Type::INT4, // drop_off_type
-            Type::INT4, // continuous_pickup
-            Type::INT4, // continuous_drop_off
+            Type::TEXT,   // agency
+            Type::INT4,   // SortableTime
+            Type::TEXT,   // trip_id
+            Type::INT4,   // arrival_time
+            Type::INT4,   // departure_time
+            Type::TEXT,   // stop_id
+            Type::TEXT,   // location_group_id
+            Type::TEXT,   // location_id
+            Type::INT4,   // stop_sequence
+            Type::TEXT,   // stop_headsign
+            Type::INT4,   // start_pickup_drop_off_window
+            Type::INT4,   // end_pickup_drop_off_window
+            Type::INT4,   // pickup_type
+            Type::INT4,   // drop_off_type
+            Type::INT4,   // continuous_pickup
+            Type::INT4,   // continuous_drop_off
             Type::FLOAT4, // shape_dist_traveled
-            Type::INT4, // timepoint
-            Type::TEXT, // pickup_booking_rule_id
-            Type::TEXT, // drop_off_booking_rule_id
+            Type::INT4,   // timepoint
+            Type::TEXT,   // pickup_booking_rule_id
+            Type::TEXT,   // drop_off_booking_rule_id
         ]
     }
 
@@ -49,7 +55,10 @@ impl BinaryCopy for gtfs::StopTime {
         "COPY StopTimes FROM STDIN BINARY"
     }
 
-    async fn write_row(&self, writer: Pin<&mut BinaryCopyInWriter>) -> Result<(), tokio_postgres::Error> {
+    async fn write_row(
+        &self,
+        writer: Pin<&mut BinaryCopyInWriter>,
+    ) -> Result<(), tokio_postgres::Error> {
         let row: &[&'_ (dyn ToSql + Sync)] = &[
             &self.agency,
             &i32::from(
@@ -57,7 +66,9 @@ impl BinaryCopy for gtfs::StopTime {
                     .or(self.end_pickup_drop_off_window)
                     .or(self.arrival_time)
                     .or(self.start_pickup_drop_off_window)
-                    .expect("Stop time did not have any associated times (this doesn't meet GTFS spec)")
+                    .expect(
+                        "Stop time did not have any associated times (this doesn't meet GTFS spec)",
+                    ),
             ),
             &self.trip_id,
             &self.arrival_time.map(|t| i32::from(t)),
@@ -88,21 +99,21 @@ impl BinaryCopy for gtfs::StopTime {
 impl BinaryCopy for gtfs::Stop {
     fn get_col_types() -> &'static [Type] {
         &[
-            Type::TEXT, // agency
-            Type::TEXT, // stop_id
-            Type::TEXT, // stop_code
-            Type::TEXT, // stop_name
-            Type::TEXT, // tts_stop_name
-            Type::TEXT, // stop_desc
+            Type::TEXT,  // agency
+            Type::TEXT,  // stop_id
+            Type::TEXT,  // stop_code
+            Type::TEXT,  // stop_name
+            Type::TEXT,  // tts_stop_name
+            Type::TEXT,  // stop_desc
             Type::POINT, // stop_lat_lon
-            Type::TEXT, // zone_id
-            Type::TEXT, // stop_url
-            Type::TEXT, // location_type
-            Type::TEXT, // parent_station
-            Type::TEXT, // stop_timezone
-            Type::INT4, // wheelchair_boarding
-            Type::TEXT, // level_id
-            Type::TEXT, // platform_code
+            Type::TEXT,  // zone_id
+            Type::TEXT,  // stop_url
+            Type::INT4,  // location_type
+            Type::TEXT,  // parent_station
+            Type::TEXT,  // stop_timezone
+            Type::INT4,  // wheelchair_boarding
+            Type::TEXT,  // level_id
+            Type::TEXT,  // platform_code
         ]
     }
 
@@ -110,7 +121,24 @@ impl BinaryCopy for gtfs::Stop {
         "COPY Stops FROM STDIN BINARY"
     }
 
-    async fn write_row(&self, writer: Pin<&mut BinaryCopyInWriter>) -> Result<(), tokio_postgres::Error> {
+    async fn write_row(
+        &self,
+        writer: Pin<&mut BinaryCopyInWriter>,
+    ) -> Result<(), tokio_postgres::Error> {
+        // Default location type, if unset, is 0.
+        // Filter to only 0 location types (which represent actual stops/platforms)
+        if let Some(location_type) = self.location_type {
+            if location_type != 0 {
+                return Ok(());
+            }
+        }
+        let (stop_lat, stop_lon) = (
+            self.stop_lat
+                .expect("Expected stop_lat to exist since location_type is empty or unset"),
+            self.stop_lon
+                .expect("Expected stop_lon to exist since location_type is empty or unset"),
+        );
+
         let row: &[&'_ (dyn ToSql + Sync)] = &[
             &self.agency,
             &self.stop_id,
@@ -118,7 +146,7 @@ impl BinaryCopy for gtfs::Stop {
             &self.stop_name,
             &self.tts_stop_name,
             &self.stop_desc,
-            &geo_types::Point::new(self.stop_lat, self.stop_lon),
+            &geo_types::Point::new(stop_lat, stop_lon),
             &self.zone_id,
             &self.stop_url,
             &self.location_type,
@@ -156,7 +184,10 @@ impl BinaryCopy for gtfs::Trip {
         "COPY Trips FROM STDIN BINARY"
     }
 
-    async fn write_row(&self, writer: Pin<&mut BinaryCopyInWriter>) -> Result<(), tokio_postgres::Error> {
+    async fn write_row(
+        &self,
+        writer: Pin<&mut BinaryCopyInWriter>,
+    ) -> Result<(), tokio_postgres::Error> {
         let row: &[&'_ (dyn ToSql + Sync)] = &[
             &self.agency,
             &self.route_id,
@@ -201,7 +232,10 @@ impl BinaryCopy for gtfs::Route {
         "COPY Routes FROM STDIN BINARY"
     }
 
-    async fn write_row(&self, writer: Pin<&mut BinaryCopyInWriter>) -> Result<(), tokio_postgres::Error> {
+    async fn write_row(
+        &self,
+        writer: Pin<&mut BinaryCopyInWriter>,
+    ) -> Result<(), tokio_postgres::Error> {
         let row: &[&'_ (dyn ToSql + Sync)] = &[
             &self.agency,
             &self.route_id,
@@ -246,7 +280,10 @@ impl BinaryCopy for gtfs::Calendar {
         "COPY Calendar FROM STDIN BINARY"
     }
 
-    async fn write_row(&self, writer: Pin<&mut BinaryCopyInWriter>) -> Result<(), tokio_postgres::Error> {
+    async fn write_row(
+        &self,
+        writer: Pin<&mut BinaryCopyInWriter>,
+    ) -> Result<(), tokio_postgres::Error> {
         let row: &[&'_ (dyn ToSql + Sync)] = &[
             &self.agency,
             &self.service_id,
@@ -281,7 +318,10 @@ impl BinaryCopy for gtfs::CalendarDate {
         "COPY CalendarDates FROM STDIN BINARY"
     }
 
-    async fn write_row(&self, writer: Pin<&mut BinaryCopyInWriter>) -> Result<(), tokio_postgres::Error> {
+    async fn write_row(
+        &self,
+        writer: Pin<&mut BinaryCopyInWriter>,
+    ) -> Result<(), tokio_postgres::Error> {
         let row: &[&'_ (dyn ToSql + Sync)] = &[
             &self.agency,
             &self.service_id,
@@ -295,7 +335,10 @@ impl BinaryCopy for gtfs::CalendarDate {
     }
 }
 
-pub async fn write_to_table<T: BinaryCopy>(it: impl Iterator<Item = T>, transaction: &Transaction<'_>) -> Result<u64> {
+pub async fn write_to_table<T: BinaryCopy>(
+    it: impl Iterator<Item = T>,
+    transaction: &Transaction<'_>,
+) -> Result<u64> {
     let copy_in_sink = transaction.copy_in(T::get_copy_command()).await?;
     let col_types = T::get_col_types();
     let writer = BinaryCopyInWriter::new(copy_in_sink, col_types);
