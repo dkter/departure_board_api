@@ -184,7 +184,38 @@ impl Formatter for Burlington {
 }
 
 struct Mbta;
-impl Formatter for Mbta {}
+impl Formatter for Mbta {
+    fn get_stop_name(&self, db_record: &DepartureResult) -> String {
+        // shorten from "Temple Pl @ Washington St" to "Temple / Washington"
+        let street_suffix = regex::Regex::new(" (St|Av|Ave|Dr|Rd|Blvd|Pl)? ").unwrap();
+        let stop_name = db_record
+            .stop_name
+            .replace(" @ ", " / ")
+            .replace(" opp ", " \\ "); // i guess
+        match street_suffix.replace_all(&stop_name, " ") {
+            Cow::Borrowed(_) => stop_name,
+            Cow::Owned(s) => s,
+        }
+    }
+
+    fn get_route_long_name(&self, db_record: &DepartureResult) -> String {
+        // For coloured subway lines except green, return an empty string
+        if let "Red" | "Orange" | "Blue" = db_record.route_short_name.as_deref().unwrap_or("") {
+            return "".to_string();
+        }
+
+        db_record
+            .route_long_name
+            .clone()
+            .expect(&format!(
+                "route_long_name not found on MBTA route {:?}",
+                db_record.route_short_name
+            ))
+            .replace("Station", "Stn")
+            .replace("Street", "St")
+            .replace("Place", "Pl")
+    }
+}
 
 pub fn get_formatter_from_agency(agency: &str) -> Box<dyn Formatter> {
     match agency {
